@@ -12,6 +12,8 @@ import {
   tithiName, type Bilingual,
 } from "./constants";
 import { computeDignity, type DignityResult } from "./dignity";
+import { analyzeLagna, type LagnaAnalysis } from "./lagna-analysis";
+import { computeShadbala, type ShadbalaResult, type ShadbalaContext } from "./shadbala";
 import { computeDasha, type DashaTimeline } from "./dasha";
 
 const DEG = 360;
@@ -161,6 +163,8 @@ export interface ChartResult {
   janmaNakshatra: Bilingual;
   janmaPada: number;
   dasha: DashaTimeline;
+  lagnaAnalysis: LagnaAnalysis;
+  lagnaLordShadbala: ShadbalaResult | null;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -214,6 +218,30 @@ export function computeChart(input: {
   const birthEpoch = new Date(Date.UTC(by, (bm || 1) - 1, bd || 1, bh || 0, bmin || 0, 0));
   const dasha = computeDasha(moon.siderealLon, birthEpoch, 3, 1);
 
+  // ---- Lagna analysis + Lagna-lord Shadbala --------------------------------
+  const lagnaAnalysis = analyzeLagna(lagnaRasi, lagnaSid, planets);
+
+  // Shadbala context: day/night, weekday, ayana (Sun's tropical course).
+  const observer = new Astronomy.Observer(input.latitude, input.longitude, 0);
+  let isDayBirth = true;
+  try {
+    const dayStart = new Astronomy.AstroTime(new Date(time.date.getTime() - 18 * 3600 * 1000));
+    const sr = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, +1, dayStart, 2);
+    const ss = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, -1, sr ?? dayStart, 2);
+    if (sr && ss) {
+      isDayBirth = time.date.getTime() >= sr.date.getTime() && time.date.getTime() < ss.date.getTime();
+    }
+  } catch { /* keep default */ }
+  // Weekday of the civil birth date (0=Sunday..6=Saturday).
+  const weekdayIndex = new Date(Date.UTC(by, (bm || 1) - 1, bd || 1)).getUTCDay();
+  // Ayana: Sun's tropical longitude in 0..180 = northern course (Uttarayana leaning).
+  const sunTropLon = norm360(planets[0].siderealLon + ayan);
+  const ayanaNorth = sunTropLon >= 270 || sunTropLon < 90; // Makara..Mithuna = northward
+  const shadbalaCtx: ShadbalaContext = { planets, weekdayIndex, isDayBirth, ayanaNorth };
+  const lagnaLordShadbala = computeShadbala(
+    lagnaAnalysis.lordIndex, lagnaSid, lagnaRasi, shadbalaCtx,
+  );
+
   return {
     meta: {
       date: input.date, time: input.time,
@@ -230,6 +258,8 @@ export function computeChart(input: {
     janmaNakshatra: moon.nakshatra,
     janmaPada: moon.pada,
     dasha,
+    lagnaAnalysis,
+    lagnaLordShadbala,
   };
 }
 

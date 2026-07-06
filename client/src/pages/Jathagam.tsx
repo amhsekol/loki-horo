@@ -8,17 +8,20 @@ import type { ChartResult } from "@shared/astro/engine";
 import type { Chart } from "@shared/schema";
 import { Layout } from "@/components/Layout";
 import { RasiGrid, buildOccupants, DIGNITY_COLOR, DIGNITY_DOT } from "@/components/RasiGrid";
+import { NorthIndianChart } from "@/components/NorthIndianChart";
+import type { ChartScript } from "@shared/astro/constants";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
 import { DateSelect, TimeSelect } from "@/components/DateTimePicker";
 import { DashaTable } from "@/components/DashaTable";
 import { IncidentsTab } from "@/components/IncidentsTab";
+import { LagnaDashboard } from "@/components/LagnaDashboard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -28,17 +31,31 @@ function fmtDeg(d: number) {
   return `${deg}° ${String(min).padStart(2, "0")}′ ${String(sec).padStart(2, "0")}″`;
 }
 
+// Default birth place: Chennai (matches app's Tamil sidereal focus).
+const CHENNAI_DEFAULT: GeoResult = {
+  name: "Chennai",
+  admin1: "Tamil Nadu",
+  country: "India",
+  latitude: 13.08784,
+  longitude: 80.27847,
+  timezone: "Asia/Kolkata",
+};
+
 export default function Jathagam() {
   const { lang, t } = useLang();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [place, setPlace] = useState<GeoResult | null>(null);
-  const [placeLabel, setPlaceLabel] = useState("");
+  const [place, setPlace] = useState<GeoResult | null>(CHENNAI_DEFAULT);
+  const [placeLabel, setPlaceLabel] = useState(
+    `${CHENNAI_DEFAULT.name}, ${CHENNAI_DEFAULT.admin1}, ${CHENNAI_DEFAULT.country}`,
+  );
   const [reopenedChart, setReopenedChart] = useState<ChartResult | null>(null);
   // Saved-chart id of the currently displayed chart (for attaching incidents).
   const [activeChartId, setActiveChartId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "incidents">("chart");
+  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "incidents">("chart");
+  const [chartStyle, setChartStyle] = useState<"south" | "north">("south");
+  const [chartScript, setChartScript] = useState<ChartScript>("en");
 
   // Saved charts history
   const savedQuery = useQuery<Chart[]>({ queryKey: ["/api/charts"] });
@@ -208,6 +225,18 @@ export default function Jathagam() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab("dashboard")}
+              data-testid="tab-dashboard"
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "dashboard"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutDashboard className="h-4 w-4" /> {t(UI.tabDashboard)}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("incidents")}
               data-testid="tab-incidents"
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
@@ -222,6 +251,8 @@ export default function Jathagam() {
 
           {activeTab === "incidents" ? (
             <IncidentsTab chartId={activeChartId} chartLabel={name.trim() || undefined} />
+          ) : activeTab === "dashboard" ? (
+            <LagnaDashboard chart={chart} />
           ) : (
           <div className="space-y-8">
           {/* Summary badges */}
@@ -234,32 +265,109 @@ export default function Jathagam() {
               value={chart.janmaNakshatra[lang]} sub={`${t(UI.pada)} ${chart.janmaPada}`} />
           </div>
 
+          {/* Chart style + script controls */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">{t(UI.chartStyle)}:</span>
+              <div className="inline-flex rounded-md border border-card-border overflow-hidden">
+                <button
+                  type="button"
+                  data-testid="style-south"
+                  onClick={() => setChartStyle("south")}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    chartStyle === "south" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t(UI.southStyle)}
+                </button>
+                <button
+                  type="button"
+                  data-testid="style-north"
+                  onClick={() => setChartStyle("north")}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-card-border ${
+                    chartStyle === "north" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t(UI.northStyle)}
+                </button>
+              </div>
+            </div>
+            {chartStyle === "north" && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">{t(UI.scriptLabel)}:</span>
+                <div className="inline-flex rounded-md border border-card-border overflow-hidden">
+                  <button
+                    type="button"
+                    data-testid="script-en"
+                    onClick={() => setChartScript("en")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      chartScript === "en" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t(UI.scriptEn)}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="script-hi"
+                    onClick={() => setChartScript("hi")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-card-border ${
+                      chartScript === "hi" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t(UI.scriptHi)}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Charts */}
           <div className="grid gap-8 md:grid-cols-2">
             <div>
               <h2 className="font-serif text-lg mb-3 text-center">{t(UI.rasiChart)}</h2>
-              <RasiGrid
-                title={lang === "ta" ? "ராசி" : "Rasi D-1"}
-                occupants={buildOccupants(
-                  chart.planets.map((p) => p.rasiIndex),
-                  chart.planets.map((p) => p.retrograde),
-                  chart.lagna.rasiIndex,
-                  lang,
-                  true
-                )}
-              />
+              {chartStyle === "south" ? (
+                <RasiGrid
+                  title={lang === "ta" ? "ராசி" : "Rasi D-1"}
+                  occupants={buildOccupants(
+                    chart.planets.map((p) => p.rasiIndex),
+                    chart.planets.map((p) => p.retrograde),
+                    chart.lagna.rasiIndex,
+                    lang,
+                    true
+                  )}
+                />
+              ) : (
+                <NorthIndianChart
+                  title={chartScript === "hi" ? "राशि D-1" : "Rasi D-1"}
+                  script={chartScript}
+                  lagnaSign={chart.lagna.rasiIndex}
+                  planetSigns={chart.planets.map((p) => p.rasiIndex)}
+                  retroFlags={chart.planets.map((p) => p.retrograde)}
+                  showDignity
+                />
+              )}
             </div>
             <div>
               <h2 className="font-serif text-lg mb-3 text-center">{t(UI.navamsaChart)}</h2>
-              <RasiGrid
-                title={lang === "ta" ? "நவாம்சம்" : "Navamsa D-9"}
-                occupants={buildOccupants(
-                  chart.navamsa.planetSigns,
-                  chart.planets.map((p) => p.retrograde),
-                  chart.navamsa.lagnaSign,
-                  lang
-                )}
-              />
+              {chartStyle === "south" ? (
+                <RasiGrid
+                  title={lang === "ta" ? "நவாம்சம்" : "Navamsa D-9"}
+                  occupants={buildOccupants(
+                    chart.navamsa.planetSigns,
+                    chart.planets.map((p) => p.retrograde),
+                    chart.navamsa.lagnaSign,
+                    lang
+                  )}
+                />
+              ) : (
+                <NorthIndianChart
+                  title={chartScript === "hi" ? "नवांश D-9" : "Navamsa D-9"}
+                  script={chartScript}
+                  lagnaSign={chart.navamsa.lagnaSign}
+                  planetSigns={chart.navamsa.planetSigns}
+                  retroFlags={chart.planets.map((p) => p.retrograde)}
+                />
+              )}
             </div>
           </div>
 

@@ -208,6 +208,33 @@ export const GREGORIAN_MONTHS: Bilingual[] = [
 // Rasi lords (adhipathi) — index into GRAHAS (0=Sun..6=Saturn)
 export const RASI_LORDS = [2, 5, 3, 1, 0, 3, 5, 2, 4, 6, 6, 4];
 
+// ── North Indian chart script support ───────────────────────────────
+// Script chosen locally for the North Indian (diamond) chart.
+export type ChartScript = "en" | "hi";
+
+// Full Rasi names in Hindi (Devanagari) — index 0=Mesha..11=Meena
+export const RASIS_HI: string[] = [
+  "मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या",
+  "तुला", "वृश्चिक", "धनु", "मकर", "कुम्भ", "मीन",
+];
+
+// Short graha labels in Hindi — index 0=Sun..8=Ketu
+export const GRAHA_SHORT_HI: string[] = [
+  "सू", "चं", "मं", "बु", "गु", "शु", "श", "रा", "के",
+];
+export const LAGNA_SHORT_HI = "ल";
+
+// Rasi number label (1..12) used inside North Indian house diamonds.
+export function rasiLabelForScript(signIndex: number, script: ChartScript): string {
+  return script === "hi" ? RASIS_HI[signIndex] : RASIS[signIndex].en.split(" (")[0];
+}
+export function grahaShortForScript(grahaIndex: number, script: ChartScript): string {
+  return script === "hi" ? GRAHA_SHORT_HI[grahaIndex] : GRAHA_SHORT[grahaIndex].en;
+}
+export function lagnaShortForScript(script: ChartScript): string {
+  return script === "hi" ? LAGNA_SHORT_HI : LAGNA_SHORT.en;
+}
+
 // UI string dictionary
 export const UI: Record<string, Bilingual> = {
   appName: { ta: "தமிழ் ஜோதிடம்", en: "Tamil Jyotish" },
@@ -223,6 +250,13 @@ export const UI: Record<string, Bilingual> = {
   place: { ta: "இடம்", en: "Place" },
   generate: { ta: "ஜாதகம் உருவாக்கு", en: "Generate Chart" },
   calculate: { ta: "கணக்கிடு", en: "Calculate" },
+  chartStyle: { ta: "கட்ட வகை", en: "Chart Style" },
+  southStyle: { ta: "தென்னிந்திய", en: "South Indian" },
+  northStyle: { ta: "வட இந்திய", en: "North Indian" },
+  scriptLabel: { ta: "எழுத்து", en: "Script" },
+  scriptEn: { ta: "ஆங்கிலம்", en: "English" },
+  scriptHi: { ta: "இந்தி", en: "Hindi" },
+  houseLabel: { ta: "பாவம்", en: "House" },
   rasiChart: { ta: "ராசி கட்டம் (D-1)", en: "Rasi Chart (D-1)" },
   navamsaChart: { ta: "நவாம்ச கட்டம் (D-9)", en: "Navamsa Chart (D-9)" },
   planetPositions: { ta: "கிரக நிலைகள்", en: "Planetary Positions" },
@@ -301,6 +335,39 @@ export const UI: Record<string, Bilingual> = {
   // Tabs
   tabChart: { ta: "ஜாதகம்", en: "Chart" },
   tabIncidents: { ta: "நிகழ்வுகள்", en: "Incidents" },
+  tabDashboard: { ta: "பலகை", en: "Dashboard" },
+  // Lagna dashboard
+  dashTitle: { ta: "லக்ன பகுப்பாய்வு", en: "Lagna Analysis" },
+  dashSubtitle: {
+    ta: "லக்னம், அதன் அதிபதியின் பலம், சேர்க்கை மற்றும் பார்வைகள்.",
+    en: "The ascendant, its lord's strength, conjunctions and aspects.",
+  },
+  lagnaHeading: { ta: "லக்னம்", en: "Ascendant (Lagna)" },
+  lagnaLord: { ta: "லக்னாதிபதி", en: "Lagna lord" },
+  planetsInLagna: { ta: "லக்னத்தில் உள்ள கிரகங்கள்", en: "Planets in the Lagna" },
+  aspectsToLagna: { ta: "லக்னத்தைப் பார்க்கும் கிரகங்கள்", en: "Planets aspecting the Lagna" },
+  nonePlanetsInLagna: { ta: "லக்னத்தில் கிரகங்கள் எதுவும் இல்லை.", en: "No planets occupy the Lagna." },
+  noneAspects: { ta: "லக்னத்தைப் பார்க்கும் கிரகங்கள் எதுவும் இல்லை.", en: "No planets aspect the Lagna." },
+  lordStrength: { ta: "லக்னாதிபதி பலம் (ஷட்பலம்)", en: "Lagna lord strength (Shadbala)" },
+  lordConjunctions: { ta: "லக்னாதிபதியுடன் சேர்க்கை", en: "Conjunctions with the Lagna lord" },
+  lordAspectedBy: { ta: "லக்னாதிபதியைப் பார்க்கும் கிரகங்கள்", en: "Planets aspecting the Lagna lord" },
+  noneConjunctions: { ta: "சேர்க்கை எதுவும் இல்லை.", en: "No conjunctions." },
+  inSign: { ta: "இல்", en: "in" },
+  house: { ta: "பாவம்", en: "house" },
+  degGap: { ta: "டிகிரி இடைவெளி", en: "gap" },
+  tightConj: { ta: "நெருங்கிய சேர்க்கை", en: "tight conjunction" },
+  totalStrength: { ta: "மொத்த பலம்", en: "Total strength" },
+  required: { ta: "தேவையான பலம்", en: "Required" },
+  rupas: { ta: "ரூபம்", en: "Rupas" },
+  virupas: { ta: "விரூபம்", en: "Virupas" },
+  strong: { ta: "வலிமையானது", en: "Strong" },
+  moderate: { ta: "நடுத்தரம்", en: "Moderate" },
+  weak: { ta: "பலவீனம்", en: "Weak" },
+  dashNeedChart: {
+    ta: "பகுப்பாய்வைக் காண முதலில் ஒரு ஜாதகத்தை உருவாக்கவும் அல்லது திறக்கவும்.",
+    en: "Generate or open a chart first to see the analysis.",
+  },
+  degShort: { ta: "°", en: "°" },
   // Incidents
   incidentsTitle: { ta: "வாழ்க்கை நிகழ்வுகள்", en: "Life Incidents" },
   incidentsSubtitle: {
