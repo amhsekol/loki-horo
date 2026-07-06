@@ -217,6 +217,33 @@ export const GREGORIAN_MONTHS: Bilingual[] = [
 // Rasi lords (adhipathi) — index into GRAHAS (0=Sun..6=Saturn)
 export const RASI_LORDS = [2, 5, 3, 1, 0, 3, 5, 2, 4, 6, 6, 4];
 
+// ── Graha Drishti (planetary aspects, whole-sign) ───────────────────
+// Every planet aspects the 7th sign from itself. Special aspects:
+//   Mars (2): 4th & 8th also; Jupiter (4): 5th & 9th also;
+//   Saturn (6): 3rd & 10th also. Rahu/Ketu (7/8): treated like Jupiter
+//   (5th, 7th, 9th) per common Tamil/Parashari practice.
+// Distances are 1-based whole-sign counts (2 = next sign, 7 = opposite).
+export const SPECIAL_DRISHTI: Record<number, number[]> = {
+  2: [4, 7, 8],
+  4: [5, 7, 9],
+  6: [3, 7, 10],
+  7: [5, 7, 9],
+  8: [5, 7, 9],
+};
+
+// Whole-sign distance (1..12) from sign `from` to sign `to` (1 = same sign).
+export function signDistance(from: number, to: number): number {
+  return ((to - from + 12) % 12) + 1;
+}
+
+// Does a graha placed in `fromSign` cast an aspect (drishti) onto `toSign`?
+// Returns the drishti number (e.g. 7, 5, 9) if it aspects, else 0.
+export function aspectFromTo(grahaIndex: number, fromSign: number, toSign: number): number {
+  const dist = signDistance(fromSign, toSign);
+  const casts = SPECIAL_DRISHTI[grahaIndex] ?? [7];
+  return casts.includes(dist) ? dist : 0;
+}
+
 // ── North Indian chart script support ───────────────────────────────
 // Script chosen locally for the North Indian (diamond) chart.
 export type ChartScript = "en" | "hi";
@@ -493,4 +520,18 @@ export const UI: Record<string, Bilingual> = {
     en: "Sidereal (Nirayana) calculations based on Lahiri ayanamsa.",
     hi: "लाहिरी अयनांश पर आधारित निरयन (सायडीरियल) गणना।",
   },
+  // ── Box detail (tap a rasi cell) ──────────────────────────────
+  tapHint: { ta: "விவரங்களைக் காண ஒரு ராசி கட்டத்தைத் தட்டவும்", en: "Tap a sign box to see its details", hi: "विवरण देखने के लिए किसी राशि खाने को टैप करें" },
+  boxDetail: { ta: "ராசி விவரம்", en: "Sign Details", hi: "राशि विवरण" },
+  signLord: { ta: "ராசி அதிபதி", en: "Sign Lord", hi: "राशि स्वामी" },
+  lordPower: { ta: "அதிபதியின் பலம்", en: "Lord's Power", hi: "स्वामी का बल" },
+  placedIn: { ta: "அமைந்துள்ளது", en: "placed in", hi: "स्थित" },
+  occupants: { ta: "இந்த ராசியில் உள்ள கிரகங்கள்", en: "Planets in this box", hi: "इस खाने के ग्रह" },
+  noOccupants: { ta: "இந்த ராசியில் கிரகங்கள் எதுவும் இல்லை.", en: "No planets in this box.", hi: "इस खाने में कोई ग्रह नहीं।" },
+  aspectingThis: { ta: "இந்த ராசியைப் பார்க்கும் கிரகங்கள்", en: "Planets aspecting this box", hi: "इस खाने को देखने वाले ग्रह" },
+  noAspecting: { ta: "இந்த ராசியை எந்தக் கிரகமும் பார்க்கவில்லை.", en: "No planets aspect this box.", hi: "कोई ग्रह इस खाने को नहीं देखता।" },
+  drishti: { ta: "பார்வை", en: "drishti", hi: "दृष्टि" },
+  atDeg: { ta: "பாகையில்", en: "at", hi: "पर" },
+  closeDetail: { ta: "மூடு", en: "Close", hi: "बंद करें" },
+  emptyBox: { ta: "காலி ராசி", en: "Empty sign", hi: "रिक्त राशि" },
 };

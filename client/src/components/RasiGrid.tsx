@@ -45,6 +45,10 @@ interface Props {
   title: string;
   // signIndex -> array of short-label strings to place in that sign's cell
   occupants: Record<number, Occupant[]>;
+  // When provided, cells become tappable and call this with the sign index.
+  onSelect?: (sign: number) => void;
+  // The currently selected sign (for highlight). -1 / undefined = none.
+  selectedSign?: number;
 }
 
 // grid position (row, col) for each sign index in a 4x4 layout
@@ -55,8 +59,9 @@ const CELL: Record<number, { r: number; c: number }> = {
   8: { r: 4, c: 1 }, 7: { r: 4, c: 2 }, 6: { r: 4, c: 3 }, 5: { r: 4, c: 4 },
 };
 
-export function RasiGrid({ title, occupants }: Props) {
+export function RasiGrid({ title, occupants, onSelect, selectedSign }: Props) {
   const { lang } = useLang();
+  const tappable = typeof onSelect === "function";
   return (
     <div className="w-full" data-testid={`chart-${title}`}>
       <div
@@ -66,12 +71,33 @@ export function RasiGrid({ title, occupants }: Props) {
         {Object.entries(CELL).map(([signStr, pos]) => {
           const sign = Number(signStr);
           const items = occupants[sign] ?? [];
+          const isSelected = tappable && selectedSign === sign;
           return (
             <div
               key={sign}
-              className="relative rounded-md border border-card-border bg-card p-1.5 flex flex-col overflow-hidden"
+              role={tappable ? "button" : undefined}
+              tabIndex={tappable ? 0 : undefined}
+              onClick={tappable ? () => onSelect!(sign) : undefined}
+              onKeyDown={
+                tappable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect!(sign);
+                      }
+                    }
+                  : undefined
+              }
+              className={`relative rounded-md border bg-card p-1.5 flex flex-col overflow-hidden transition-colors ${
+                tappable ? "cursor-pointer hover-elevate active-elevate-2" : ""
+              } ${
+                isSelected
+                  ? "border-primary ring-2 ring-primary/40 bg-primary/5"
+                  : "border-card-border"
+              }`}
               style={{ gridColumn: pos.c, gridRow: pos.r }}
               data-testid={`cell-sign-${sign}`}
+              aria-pressed={tappable ? isSelected : undefined}
             >
               <span className="text-[10px] leading-tight text-muted-foreground font-medium truncate">
                 {tl(RASIS[sign], lang).split(" (")[0]}

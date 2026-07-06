@@ -8,6 +8,7 @@ import { DIGNITY_LABEL, DIGNITY_POINTS, type Dignity } from "@shared/astro/digni
 import type { ChartResult } from "@shared/astro/engine";
 import type { Chart } from "@shared/schema";
 import { RasiGrid, buildOccupants, DIGNITY_COLOR, DIGNITY_DOT } from "@/components/RasiGrid";
+import { BoxDetail, BoxTapHint } from "@/components/BoxDetail";
 import { NorthIndianChart } from "@/components/NorthIndianChart";
 import type { ChartScript } from "@shared/astro/constants";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
@@ -76,11 +77,14 @@ export default function Jathagam() {
   // Seed from the startup-chosen preference; still toggleable inline per-chart.
   const [chartStyle, setChartStyle] = useState<"south" | "north">(preferredStyle);
   const [chartScript, setChartScript] = useState<ChartScript>("en");
+  // Selected D-1 Rasi box for the tap-detail panel. -1 = none selected.
+  const [selectedSign, setSelectedSign] = useState<number>(-1);
 
   const mut = useMutation<ChartResult, Error, void>({
     mutationFn: async () => {
       setReopenedChart(null);
       setActiveChartId(null);
+      setSelectedSign(-1);
       setActiveTab("chart");
       setOpenedFromSaved(false);
       setEditMode(false);
@@ -120,6 +124,7 @@ export default function Jathagam() {
   // Re-open a saved chart: repopulate the form (LOCKED) and regenerate.
   function openSaved(c: Chart) {
     setActiveChartId(c.id);
+    setSelectedSign(-1);
     setActiveTab("chart");
     setOpenedFromSaved(true);
     setEditMode(false);
@@ -487,16 +492,27 @@ export default function Jathagam() {
             <div>
               <h2 className="font-serif text-lg mb-3 text-center">{t(UI.rasiChart)}</h2>
               {chartStyle === "south" ? (
-                <RasiGrid
-                  title={lang === "ta" ? "ராசி" : "Rasi D-1"}
-                  occupants={buildOccupants(
-                    chart.planets.map((p) => p.rasiIndex),
-                    chart.planets.map((p) => p.retrograde),
-                    chart.lagna.rasiIndex,
-                    lang,
-                    true
+                <>
+                  <RasiGrid
+                    title={lang === "ta" ? "ராசி" : "Rasi D-1"}
+                    occupants={buildOccupants(
+                      chart.planets.map((p) => p.rasiIndex),
+                      chart.planets.map((p) => p.retrograde),
+                      chart.lagna.rasiIndex,
+                      lang,
+                      true
+                    )}
+                    onSelect={(s) => setSelectedSign((cur) => (cur === s ? -1 : s))}
+                    selectedSign={selectedSign}
+                  />
+                  {selectedSign >= 0 ? (
+                    <div className="mt-4">
+                      <BoxDetail chart={chart} sign={selectedSign} onClose={() => setSelectedSign(-1)} />
+                    </div>
+                  ) : (
+                    <BoxTapHint />
                   )}
-                />
+                </>
               ) : (
                 <NorthIndianChart
                   title={chartScript === "hi" ? "राशि D-1" : "Rasi D-1"}
