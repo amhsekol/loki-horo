@@ -386,12 +386,12 @@ export default function Jathagam() {
       {chart && !mut.isPending && (
         <div className="space-y-8">
           {/* Tab switcher: Chart vs Incidents */}
-          <div className="flex items-center gap-1 border-b border-card-border">
+          <div className="flex items-center gap-1 border-b border-card-border overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
             <button
               type="button"
               onClick={() => setActiveTab("chart")}
               data-testid="tab-chart"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
                 activeTab === "chart"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -403,7 +403,7 @@ export default function Jathagam() {
               type="button"
               onClick={() => setActiveTab("dashboard")}
               data-testid="tab-dashboard"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
                 activeTab === "dashboard"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -415,7 +415,7 @@ export default function Jathagam() {
               type="button"
               onClick={() => setActiveTab("ashtakavarga")}
               data-testid="tab-ashtakavarga"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
                 activeTab === "ashtakavarga"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -427,7 +427,7 @@ export default function Jathagam() {
               type="button"
               onClick={() => setActiveTab("incidents")}
               data-testid="tab-incidents"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
                 activeTab === "incidents"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
