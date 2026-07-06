@@ -236,6 +236,7 @@ export interface PanchangamResult {
   yamagandam: { start: string; end: string };
   kuligai: { start: string; end: string };
   ayanamsa: number;
+  planets: PlanetPosition[]; // planetary positions at sunrise (reference time)
 }
 
 function fmtTime(date: Date | null, tzOffset: number): string | null {
@@ -322,6 +323,17 @@ export function computePanchangam(input: {
   const tamilMonth = TAMIL_MONTHS[sunRasi];
   const tamilDay = Math.floor(sunSid - sunRasi * 30) + 1;
 
+  // Planetary positions (grahas) at the reference time (sunrise).
+  const planets: PlanetPosition[] = [];
+  for (const { idx, body } of BODY_MAP) {
+    const { sid, speed } = siderealLongitude(body, refTime, refJd);
+    const retro = idx !== 0 && idx !== 1 && speed < 0;
+    planets.push(buildPosition(idx, sid, retro));
+  }
+  const rahuSid = norm360(meanRahuTropical(refJd) - lahiriAyanamsa(refJd));
+  planets.push(buildPosition(7, rahuSid, true));
+  planets.push(buildPosition(8, norm360(rahuSid + 180), true));
+
   // Rahu kalam etc. need sunrise/sunset in local minutes.
   let rahu = { start: "--:--", end: "--:--" };
   let yama = { start: "--:--", end: "--:--" };
@@ -351,5 +363,6 @@ export function computePanchangam(input: {
     yamagandam: yama,
     kuligai: kuli,
     ayanamsa: ayan,
+    planets,
   };
 }

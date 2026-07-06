@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
-import { UI } from "@shared/astro/constants";
+import { UI, GRAHAS, RASIS, NAKSHATRAS } from "@shared/astro/constants";
 import type { PanchangamResult } from "@shared/astro/engine";
 import { Layout } from "@/components/Layout";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
@@ -11,7 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot } from "lucide-react";
+import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot, Orbit } from "lucide-react";
+
+function fmtDeg(d: number) {
+  const deg = Math.floor(d);
+  const minFloat = (d - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = Math.round((minFloat - min) * 60);
+  return `${deg}° ${String(min).padStart(2, "0")}′ ${String(sec).padStart(2, "0")}″`;
+}
 
 const CHENNAI: GeoResult = {
   name: "Chennai", admin1: "Tamil Nadu", country: "India",
@@ -122,6 +130,45 @@ export default function Panchangam() {
               <TimeCard label={t(UI.kuligai)} window={p.kuligai} tone="warning" />
             </div>
           </div>
+
+          {/* Planetary positions today */}
+          {p.planets && p.planets.length > 0 && (
+            <div>
+              <h2 className="font-serif text-lg mb-3 flex items-center gap-2">
+                <Orbit className="h-4 w-4 text-primary" />
+                {lang === "ta" ? "இன்றைய கிரக நிலைகள் (உதயத்தில்)" : "Today's Planetary Positions (at sunrise)"}
+              </h2>
+              <Card className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-card-border bg-secondary/40 text-left">
+                        <th className="px-3 py-2.5 font-medium">{t(UI.graha)}</th>
+                        <th className="px-3 py-2.5 font-medium">{t(UI.rasi)}</th>
+                        <th className="px-3 py-2.5 font-medium text-right">{t(UI.degree)}</th>
+                        <th className="px-3 py-2.5 font-medium">{t(UI.nakshatra)}</th>
+                        <th className="px-3 py-2.5 font-medium text-center">{t(UI.pada)}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {p.planets.map((pl) => (
+                        <tr key={pl.index} className="border-b border-card-border/60 last:border-0" data-testid={`row-panchang-planet-${pl.index}`}>
+                          <td className="px-3 py-2.5 font-medium">
+                            {GRAHAS[pl.index][lang].split(" (")[0]}
+                            {pl.retrograde && <sup className="ml-0.5 text-[10px] text-destructive">{t(UI.retro)}</sup>}
+                          </td>
+                          <td className="px-3 py-2.5">{RASIS[pl.rasiIndex][lang].split(" (")[0]}</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">{fmtDeg(pl.degInRasi)}</td>
+                          <td className="px-3 py-2.5">{NAKSHATRAS[pl.nakshatraIndex][lang]}</td>
+                          <td className="px-3 py-2.5 text-center">{pl.pada}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
 
           <div className="text-[11px] text-muted-foreground">
             Ayanamsa (Lahiri): {p.ayanamsa.toFixed(4)}° · {place.name}, {place.country}
