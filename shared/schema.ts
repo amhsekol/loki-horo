@@ -12,6 +12,10 @@ export const charts = sqliteTable("charts", {
   latitude: text("latitude").notNull(),
   longitude: text("longitude").notNull(),
   tzOffset: text("tz_offset").notNull(), // hours offset from UTC, e.g. "5.5"
+  // Computed values (stored so saved charts can be filtered without recomputing)
+  lagnaIndex: integer("lagna_index"),      // 0..11 sign index of the ascendant
+  rasiIndex: integer("rasi_index"),        // 0..11 Moon-sign (Janma Rasi)
+  nakshatraIndex: integer("nakshatra_index"), // 0..26 birth star (Janma Nakshatra)
   createdAt: integer("created_at").notNull(),
 });
 

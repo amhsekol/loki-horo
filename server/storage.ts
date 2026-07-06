@@ -18,9 +18,17 @@ sqlite.exec(`
     latitude TEXT NOT NULL,
     longitude TEXT NOT NULL,
     tz_offset TEXT NOT NULL,
+    lagna_index INTEGER,
+    rasi_index INTEGER,
+    nakshatra_index INTEGER,
     created_at INTEGER NOT NULL
   );
 `);
+
+// Migration: add computed-value columns to pre-existing databases (ignore if present).
+for (const col of ["lagna_index", "rasi_index", "nakshatra_index"]) {
+  try { sqlite.exec(`ALTER TABLE charts ADD COLUMN ${col} INTEGER;`); } catch { /* already exists */ }
+}
 
 export const db = drizzle(sqlite);
 

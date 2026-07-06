@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -35,6 +36,32 @@ export default function Jathagam() {
   // Saved charts history
   const savedQuery = useQuery<Chart[]>({ queryKey: ["/api/charts"] });
 
+  // Filters for saved charts
+  const [filterText, setFilterText] = useState("");
+  const [filterLagna, setFilterLagna] = useState("all");
+  const [filterRasi, setFilterRasi] = useState("all");
+  const [filterNak, setFilterNak] = useState("all");
+  const filtersActive = filterText.trim() !== "" || filterLagna !== "all" || filterRasi !== "all" || filterNak !== "all";
+
+  function matchesFilters(c: Chart): boolean {
+    const q = filterText.trim().toLowerCase();
+    if (q) {
+      const hay = `${c.name ?? ""} ${c.placeName ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (filterLagna !== "all" && c.lagnaIndex !== Number(filterLagna)) return false;
+    if (filterRasi !== "all" && c.rasiIndex !== Number(filterRasi)) return false;
+    if (filterNak !== "all" && c.nakshatraIndex !== Number(filterNak)) return false;
+    return true;
+  }
+
+  function clearFilters() {
+    setFilterText("");
+    setFilterLagna("all");
+    setFilterRasi("all");
+    setFilterNak("all");
+  }
+
   const mut = useMutation<ChartResult, Error, void>({
     mutationFn: async () => {
       setReopenedChart(null);
@@ -46,9 +73,10 @@ export default function Jathagam() {
         longitude: place.longitude,
         tzOffset: tz,
       });
-      const result = await res.json();
-      // Auto-save every generated jathagam to history.
+      const result: ChartResult = await res.json();
+      // Auto-save every generated jathagam to history (with computed values for filtering).
       try {
+        const moon = result.planets[1]; // Chandra -> Janma Rasi / Nakshatra
         await apiRequest("POST", "/api/charts", {
           name: name.trim() || "",
           date, time,
@@ -56,6 +84,9 @@ export default function Jathagam() {
           latitude: String(place.latitude),
           longitude: String(place.longitude),
           tzOffset: String(tz),
+          lagnaIndex: result.lagna.rasiIndex,
+          rasiIndex: moon.rasiIndex,
+          nakshatraIndex: moon.nakshatraIndex,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/charts"] });
       } catch { /* saving is best-effort; don't block the chart */ }
@@ -253,9 +284,68 @@ export default function Jathagam() {
         {savedQuery.data && savedQuery.data.length === 0 && (
           <p className="text-sm text-muted-foreground">{t(UI.noCharts)}</p>
         )}
-        {savedQuery.data && savedQuery.data.length > 0 && (
+        {savedQuery.data && savedQuery.data.length > 0 && (() => {
+          const filtered = savedQuery.data!.filter(matchesFilters);
+          return (
+          <>
+            {/* Filter controls */}
+            <Card className="p-4 mb-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+                <Filter className="h-3.5 w-3.5 text-primary" />
+                {t(UI.filters)}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Input
+                  placeholder={t(UI.filterName)}
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  data-testid="input-filter-name"
+                />
+                <Select value={filterLagna} onValueChange={setFilterLagna}>
+                  <SelectTrigger data-testid="select-filter-lagna"><SelectValue placeholder={t(UI.allLagna)} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t(UI.allLagna)}</SelectItem>
+                    {RASIS.map((r, i) => (
+                      <SelectItem key={i} value={String(i)}>{r[lang].split(" (")[0]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterRasi} onValueChange={setFilterRasi}>
+                  <SelectTrigger data-testid="select-filter-rasi"><SelectValue placeholder={t(UI.allRasi)} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t(UI.allRasi)}</SelectItem>
+                    {RASIS.map((r, i) => (
+                      <SelectItem key={i} value={String(i)}>{r[lang].split(" (")[0]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterNak} onValueChange={setFilterNak}>
+                  <SelectTrigger data-testid="select-filter-nakshatra"><SelectValue placeholder={t(UI.allNakshatra)} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t(UI.allNakshatra)}</SelectItem>
+                    {NAKSHATRAS.map((n, i) => (
+                      <SelectItem key={i} value={String(i)}>{n[lang]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {filtersActive && (
+                <div className="mt-3 flex items-center gap-3">
+                  <Button size="sm" variant="ghost" onClick={clearFilters} data-testid="button-clear-filters" className="gap-1.5">
+                    <X className="h-3.5 w-3.5" /> {t(UI.clearFilters)}
+                  </Button>
+                  <span className="text-xs text-muted-foreground" data-testid="text-filter-count">
+                    {filtered.length} / {savedQuery.data!.length}
+                  </span>
+                </div>
+              )}
+            </Card>
+
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-no-matches">{t(UI.noMatches)}</p>
+            ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {savedQuery.data.map((c) => (
+            {filtered.map((c) => (
               <Card key={c.id} className="p-4 flex flex-col gap-2" data-testid={`card-saved-${c.id}`}>
                 <div className="font-medium text-base leading-tight truncate">
                   {c.name?.trim() || t(UI.unnamed)}
@@ -279,7 +369,10 @@ export default function Jathagam() {
               </Card>
             ))}
           </div>
-        )}
+            )}
+          </>
+          );
+        })()}
       </div>
     </Layout>
   );

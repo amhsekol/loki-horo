@@ -241,6 +241,13 @@ export const UI: Record<string, Bilingual> = {
   loadChart: { ta: "திற", en: "Open" },
   deleteChart: { ta: "நீக்கு", en: "Delete" },
   unnamed: { ta: "பெயரிடப்படாதது", en: "Unnamed" },
+  filters: { ta: "வடிகட்டிகள்", en: "Filters" },
+  filterName: { ta: "பெயர் / ஊர்", en: "Name / City" },
+  allLagna: { ta: "எல்லா லக்னம்", en: "All Lagna" },
+  allRasi: { ta: "எல்லா ராசி", en: "All Rasi" },
+  allNakshatra: { ta: "எல்லா நட்சத்திரம்", en: "All Nakshatra" },
+  clearFilters: { ta: "நீக்கு", en: "Clear" },
+  noMatches: { ta: "வடிகட்டிக்கு பொருந்தும் ஜாதகம் இல்லை.", en: "No charts match your filters." },
   disclaimer: {
     ta: "இது Lahiri அயனாம்சத்தை அடிப்படையாகக் கொண்ட நிரயன (சைடீரியல்) கணக்கீடு.",
     en: "Sidereal (Nirayana) calculations based on Lahiri ayanamsa.",
