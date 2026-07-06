@@ -1,5 +1,28 @@
 import { useLang } from "@/lib/lang";
 import { RASIS, GRAHA_SHORT, LAGNA_SHORT } from "@shared/astro/constants";
+import { computeDignity, type Dignity } from "@shared/astro/dignity";
+
+// Color per dignity for the planet glyph in chart cells.
+export const DIGNITY_COLOR: Record<Dignity, string> = {
+  uccham: "text-emerald-600 dark:text-emerald-400",
+  moolatrikona: "text-teal-600 dark:text-teal-400",
+  aatchi: "text-green-600 dark:text-green-400",
+  natpu: "text-sky-600 dark:text-sky-400",
+  samam: "text-foreground",
+  pagai: "text-orange-600 dark:text-orange-400",
+  neecham: "text-red-600 dark:text-red-400",
+};
+
+// Explicit background dot classes (Tailwind JIT needs full literal class names).
+export const DIGNITY_DOT: Record<Dignity, string> = {
+  uccham: "bg-emerald-600 dark:bg-emerald-400",
+  moolatrikona: "bg-teal-600 dark:bg-teal-400",
+  aatchi: "bg-green-600 dark:bg-green-400",
+  natpu: "bg-sky-600 dark:bg-sky-400",
+  samam: "bg-muted-foreground",
+  pagai: "bg-orange-600 dark:bg-orange-400",
+  neecham: "bg-red-600 dark:bg-red-400",
+};
 
 // South Indian (Tamil) chart: fixed 4x4 layout, signs in fixed cells.
 // Cell order maps to sign index (0=Mesha ... 11=Meena).
@@ -9,10 +32,19 @@ import { RASIS, GRAHA_SHORT, LAGNA_SHORT } from "@shared/astro/constants";
 //  Makara(9)   [        center        ]  Simha(4)
 //  Dhanusu(8) Viruchiga(7) Thula(6)  Kanni(5)
 
+interface Occupant {
+  label: string;
+  retro?: boolean;
+  isLagna?: boolean;
+  dignity?: Dignity;      // dignity key for coloring
+  dignityShort?: string;  // short glyph (உ / ↑ etc.)
+  points?: number;        // strength points
+}
+
 interface Props {
   title: string;
   // signIndex -> array of short-label strings to place in that sign's cell
-  occupants: Record<number, { label: string; retro?: boolean; isLagna?: boolean }[]>;
+  occupants: Record<number, Occupant[]>;
 }
 
 // grid position (row, col) for each sign index in a 4x4 layout
@@ -49,11 +81,19 @@ export function RasiGrid({ title, occupants }: Props) {
                   <span
                     key={i}
                     className={`text-xs font-semibold leading-tight ${
-                      it.isLagna ? "text-primary" : "text-foreground"
+                      it.isLagna
+                        ? "text-primary"
+                        : it.dignity
+                        ? DIGNITY_COLOR[it.dignity]
+                        : "text-foreground"
                     }`}
+                    title={it.points !== undefined ? `${it.points}` : undefined}
                   >
                     {it.label}
                     {it.retro && <sup className="text-[8px] text-destructive">R</sup>}
+                    {it.dignityShort && (
+                      <sub className="text-[8px] ml-0.5 opacity-80">{it.dignityShort}</sub>
+                    )}
                   </span>
                 ))}
               </div>
@@ -75,19 +115,30 @@ export function RasiGrid({ title, occupants }: Props) {
 }
 
 // Helper to build occupants map from planet sign indices + lagna sign.
+// showDignity: when true, compute and attach dignity glyph/color (D-1 rasi + sky chart).
 export function buildOccupants(
   planetSigns: number[],
   retroFlags: boolean[],
   lagnaSign: number,
-  lang: "ta" | "en"
-): Record<number, { label: string; retro?: boolean; isLagna?: boolean }[]> {
-  const map: Record<number, { label: string; retro?: boolean; isLagna?: boolean }[]> = {};
-  const push = (sign: number, item: { label: string; retro?: boolean; isLagna?: boolean }) => {
+  lang: "ta" | "en",
+  showDignity = false
+): Record<number, Occupant[]> {
+  const map: Record<number, Occupant[]> = {};
+  const push = (sign: number, item: Occupant) => {
     (map[sign] ??= []).push(item);
   };
-  push(lagnaSign, { label: LAGNA_SHORT[lang], isLagna: true });
+  if (lagnaSign >= 0) push(lagnaSign, { label: LAGNA_SHORT[lang], isLagna: true });
   planetSigns.forEach((sign, idx) => {
-    push(sign, { label: GRAHA_SHORT[idx][lang], retro: retroFlags[idx] });
+    const item: Occupant = { label: GRAHA_SHORT[idx][lang], retro: retroFlags[idx] };
+    if (showDignity) {
+      const d = computeDignity(idx, sign);
+      if (d) {
+        item.dignity = d.key;
+        item.dignityShort = d.short[lang];
+        item.points = d.points;
+      }
+    }
+    push(sign, item);
   });
   return map;
 }

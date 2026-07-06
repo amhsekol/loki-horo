@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
-import { UI, GRAHAS, GRAHA_SHORT, RASIS, NAKSHATRAS } from "@shared/astro/constants";
+import { UI, GRAHAS, RASIS, NAKSHATRAS } from "@shared/astro/constants";
 import type { PanchangamResult } from "@shared/astro/engine";
 import { Layout } from "@/components/Layout";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RasiGrid } from "@/components/RasiGrid";
+import { RasiGrid, buildOccupants, DIGNITY_COLOR } from "@/components/RasiGrid";
+import type { Dignity } from "@shared/astro/dignity";
 import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot, Orbit } from "lucide-react";
 
 function fmtDeg(d: number) {
@@ -149,6 +150,8 @@ export default function Panchangam() {
                         <th className="px-3 py-2.5 font-medium text-right">{t(UI.degree)}</th>
                         <th className="px-3 py-2.5 font-medium">{t(UI.nakshatra)}</th>
                         <th className="px-3 py-2.5 font-medium text-center">{t(UI.pada)}</th>
+                        <th className="px-3 py-2.5 font-medium">{t(UI.dignity)}</th>
+                        <th className="px-3 py-2.5 font-medium text-right">{t(UI.strength)}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -162,6 +165,18 @@ export default function Panchangam() {
                           <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">{fmtDeg(pl.degInRasi)}</td>
                           <td className="px-3 py-2.5">{NAKSHATRAS[pl.nakshatraIndex][lang]}</td>
                           <td className="px-3 py-2.5 text-center">{pl.pada}</td>
+                          <td className="px-3 py-2.5">
+                            {pl.dignity ? (
+                              <span className={`font-medium ${DIGNITY_COLOR[pl.dignity.key as Dignity]}`}>
+                                {pl.dignity.label[lang]}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
+                            {pl.dignity ? pl.dignity.points : "—"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -173,13 +188,13 @@ export default function Panchangam() {
               <div className="mt-6">
                 <RasiGrid
                   title={lang === "ta" ? "கோசர் கட்டம்" : "Sky Chart"}
-                  occupants={p.planets.reduce((acc, pl) => {
-                    (acc[pl.rasiIndex] ??= []).push({
-                      label: GRAHA_SHORT[pl.index][lang],
-                      retro: pl.retrograde,
-                    });
-                    return acc;
-                  }, {} as Record<number, { label: string; retro?: boolean; isLagna?: boolean }[]>)}
+                  occupants={buildOccupants(
+                    p.planets.map((pl) => pl.rasiIndex),
+                    p.planets.map((pl) => pl.retrograde),
+                    -1,
+                    lang,
+                    true
+                  )}
                 />
               </div>
             </div>

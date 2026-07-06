@@ -11,6 +11,7 @@ import {
   YOGAS, KARANAS, VARAS, TAMIL_MONTHS, RASI_LORDS,
   tithiName, type Bilingual,
 } from "./constants";
+import { computeDignity, type DignityResult } from "./dignity";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -84,6 +85,7 @@ export interface PlanetPosition {
   nakshatra: Bilingual;
   pada: number;
   retrograde: boolean;
+  dignity: DignityResult | null; // strength/dignity (null for Rahu/Ketu)
 }
 
 function buildPosition(index: number, sid: number, retro: boolean): PlanetPosition {
@@ -102,6 +104,7 @@ function buildPosition(index: number, sid: number, retro: boolean): PlanetPositi
     nakshatra: NAK[nakIndex],
     pada,
     retrograde: retro,
+    dignity: computeDignity(index, rasiIndex),
   };
 }
 

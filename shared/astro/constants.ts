@@ -248,6 +248,9 @@ export const UI: Record<string, Bilingual> = {
   allNakshatra: { ta: "எல்லா நட்சத்திரம்", en: "All Nakshatra" },
   clearFilters: { ta: "நீக்கு", en: "Clear" },
   noMatches: { ta: "வடிகட்டிக்கு பொருந்தும் ஜாதகம் இல்லை.", en: "No charts match your filters." },
+  dignity: { ta: "கிரக பலம்", en: "Dignity" },
+  strength: { ta: "மதிப்பு", en: "Strength" },
+  dignityLegend: { ta: "கிரக பல அளவுகோல்", en: "Planetary Strength Scale" },
   disclaimer: {
     ta: "இது Lahiri அயனாம்சத்தை அடிப்படையாகக் கொண்ட நிரயன (சைடீரியல்) கணக்கீடு.",
     en: "Sidereal (Nirayana) calculations based on Lahiri ayanamsa.",

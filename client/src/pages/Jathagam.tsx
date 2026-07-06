@@ -3,10 +3,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
 import { UI, RASIS, NAKSHATRAS, GRAHAS } from "@shared/astro/constants";
+import { DIGNITY_LABEL, DIGNITY_POINTS, type Dignity } from "@shared/astro/dignity";
 import type { ChartResult } from "@shared/astro/engine";
 import type { Chart } from "@shared/schema";
 import { Layout } from "@/components/Layout";
-import { RasiGrid, buildOccupants } from "@/components/RasiGrid";
+import { RasiGrid, buildOccupants, DIGNITY_COLOR, DIGNITY_DOT } from "@/components/RasiGrid";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -199,7 +200,8 @@ export default function Jathagam() {
                   chart.planets.map((p) => p.rasiIndex),
                   chart.planets.map((p) => p.retrograde),
                   chart.lagna.rasiIndex,
-                  lang
+                  lang,
+                  true
                 )}
               />
             </div>
@@ -230,6 +232,8 @@ export default function Jathagam() {
                       <th className="px-3 py-2.5 font-medium text-right">{t(UI.degree)}</th>
                       <th className="px-3 py-2.5 font-medium">{t(UI.nakshatra)}</th>
                       <th className="px-3 py-2.5 font-medium text-center">{t(UI.pada)}</th>
+                      <th className="px-3 py-2.5 font-medium">{t(UI.dignity)}</th>
+                      <th className="px-3 py-2.5 font-medium text-right">{t(UI.strength)}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -243,6 +247,18 @@ export default function Jathagam() {
                         <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">{fmtDeg(p.degInRasi)}</td>
                         <td className="px-3 py-2.5">{NAKSHATRAS[p.nakshatraIndex][lang]}</td>
                         <td className="px-3 py-2.5 text-center">{p.pada}</td>
+                        <td className="px-3 py-2.5">
+                          {p.dignity ? (
+                            <span className={`font-medium ${DIGNITY_COLOR[p.dignity.key as Dignity]}`}>
+                              {p.dignity.label[lang]}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
+                          {p.dignity ? p.dignity.points : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -252,6 +268,20 @@ export default function Jathagam() {
                 Ayanamsa (Lahiri): {chart.meta.ayanamsa.toFixed(4)}°
               </div>
             </Card>
+
+            {/* Dignity / strength legend */}
+            <div className="mt-3">
+              <div className="text-xs text-muted-foreground mb-1.5">{t(UI.dignityLegend)}</div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                {(Object.keys(DIGNITY_POINTS) as Dignity[]).map((k) => (
+                  <span key={k} className="inline-flex items-center gap-1 text-xs" data-testid={`legend-${k}`}>
+                    <span className={`h-2 w-2 rounded-full ${DIGNITY_DOT[k]}`} />
+                    <span className={DIGNITY_COLOR[k]}>{DIGNITY_LABEL[k][lang]}</span>
+                    <span className="text-muted-foreground font-mono">{DIGNITY_POINTS[k]}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
