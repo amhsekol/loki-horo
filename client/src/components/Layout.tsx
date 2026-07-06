@@ -1,16 +1,14 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "wouter";
 import { useLang } from "@/lib/lang";
-import { useTheme } from "@/lib/theme";
+import { useNav, type ModuleKey } from "@/lib/nav";
 import { UI } from "@shared/astro/constants";
-import { Sun, Moon, Sparkles, CalendarDays } from "lucide-react";
+import { Sparkles, CalendarDays, History, Settings as SettingsIcon } from "lucide-react";
 
 function Logo() {
   return (
-    <svg width="34" height="34" viewBox="0 0 48 48" fill="none" aria-label="Tamil Jyotish" className="text-primary">
+    <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-label="LOKI HORO" className="text-primary shrink-0">
       <circle cx="24" cy="24" r="21" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
       <circle cx="24" cy="24" r="15" stroke="currentColor" strokeWidth="1.5" />
-      {/* 12-point star / sun rays */}
       {Array.from({ length: 12 }).map((_, i) => {
         const a = (i * 30 * Math.PI) / 180;
         const x1 = 24 + Math.cos(a) * 15;
@@ -24,15 +22,16 @@ function Logo() {
   );
 }
 
-export function Layout({ children }: { children: ReactNode }) {
-  const { lang, toggle: toggleLang, t } = useLang();
-  const { theme, toggle: toggleTheme } = useTheme();
-  const [location] = useLocation();
+const NAV_ITEMS: { key: ModuleKey; label: keyof typeof UI; icon: typeof Sparkles }[] = [
+  { key: "jathagam", label: "jathagam", icon: Sparkles },
+  { key: "kocharam", label: "panchangam", icon: CalendarDays },
+  { key: "saved", label: "savedShort", icon: History },
+  { key: "settings", label: "settings", icon: SettingsIcon },
+];
 
-  const tabs = [
-    { href: "/", label: UI.jathagam, icon: Sparkles },
-    { href: "/panchangam", label: UI.panchangam, icon: CalendarDays },
-  ];
+export function Layout({ children }: { children: ReactNode }) {
+  const { t } = useLang();
+  const { active, setActive } = useNav();
 
   return (
     <div className="min-h-screen bg-background text-foreground relative">
@@ -45,84 +44,76 @@ export function Layout({ children }: { children: ReactNode }) {
           backgroundSize: "auto",
         }}
       />
-      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between gap-4">
-          <Link href="/">
-            <a className="flex items-center gap-2.5" data-testid="link-home">
-              <Logo />
-              <div className="leading-tight">
-                <div className="font-serif text-lg text-foreground">{t(UI.appName)}</div>
-                <div className="text-[10px] text-muted-foreground tracking-wide uppercase">Sidereal · Lahiri</div>
-              </div>
-            </a>
-          </Link>
 
-          <nav className="hidden sm:flex items-center gap-1 rounded-full bg-secondary/50 p-1">
-            {tabs.map((tab) => {
-              const active = location === tab.href;
-              const Icon = tab.icon;
+      {/* Compact header — just brand identity to save vertical space */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto max-w-5xl px-4 h-12 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setActive("jathagam")}
+            className="flex items-center gap-2 min-w-0"
+            data-testid="link-home"
+          >
+            <Logo />
+            <span className="font-serif text-base text-foreground truncate">{t(UI.appName)}</span>
+            <span className="hidden sm:inline text-[10px] text-muted-foreground tracking-wide uppercase border border-border rounded px-1.5 py-0.5">
+              Sidereal · Lahiri
+            </span>
+          </button>
+
+          {/* Desktop inline nav (bottom bar remains primary on mobile) */}
+          <nav className="hidden md:flex items-center gap-1 rounded-full bg-secondary/50 p-1">
+            {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+              const on = active === key;
               return (
-                <Link key={tab.href} href={tab.href}>
-                  <a
-                    className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                      active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid={`nav-${tab.href === "/" ? "jathagam" : "panchangam"}`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {t(tab.label)}
-                  </a>
-                </Link>
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActive(key)}
+                  data-testid={`navtop-${key}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(UI[label])}
+                </button>
               );
             })}
           </nav>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={toggleLang}
-              className="rounded-md px-2.5 py-1.5 text-sm font-semibold hover-elevate active-elevate-2 border border-border"
-              data-testid="button-lang"
-              aria-label="Toggle language"
-            >
-              {lang === "ta" ? "EN" : lang === "en" ? "हि" : "த"}
-            </button>
-            <button
-              onClick={toggleTheme}
-              className="rounded-md p-2 hover-elevate active-elevate-2 border border-border"
-              data-testid="button-theme"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-          </div>
         </div>
-        {/* mobile nav */}
-        <nav className="sm:hidden flex items-center gap-1 px-4 pb-2">
-          {tabs.map((tab) => {
-            const active = location === tab.href;
-            const Icon = tab.icon;
-            return (
-              <Link key={tab.href} href={tab.href}>
-                <a
-                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium ${
-                    active ? "bg-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
-                  }`}
-                  data-testid={`navm-${tab.href === "/" ? "jathagam" : "panchangam"}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {t(tab.label)}
-                </a>
-              </Link>
-            );
-          })}
-        </nav>
       </header>
 
-      <main className="relative mx-auto max-w-5xl px-4 py-6 md:py-10">{children}</main>
+      {/* Content — extra bottom padding so the docked nav never covers content */}
+      <main className="relative mx-auto max-w-5xl px-4 py-5 md:py-8 pb-28 md:pb-10">{children}</main>
 
-      <footer className="relative mx-auto max-w-5xl px-4 py-8 text-center text-xs text-muted-foreground">
-        {t(UI.disclaimer)}
-      </footer>
+      {/* Bottom-docked navigation — primary nav on mobile, big one-handed targets */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-background/95 backdrop-blur-md"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label="Primary"
+      >
+        <div className="mx-auto max-w-5xl grid grid-cols-4">
+          {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+            const on = active === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActive(key)}
+                data-testid={`navbar-${key}`}
+                aria-current={on ? "page" : undefined}
+                className={`flex flex-col items-center justify-center gap-1 min-h-[60px] py-2 text-[11px] font-medium transition-colors active:bg-secondary/60 ${
+                  on ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <Icon className={`h-6 w-6 ${on ? "" : "opacity-80"}`} strokeWidth={on ? 2.2 : 1.8} />
+                <span className="leading-none">{t(UI[label])}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

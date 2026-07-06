@@ -4,7 +4,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
 import { UI, GRAHAS, RASIS, NAKSHATRAS } from "@shared/astro/constants";
 import type { PanchangamResult } from "@shared/astro/engine";
-import { Layout } from "@/components/Layout";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
 import { DateSelect, TimeSelect } from "@/components/DateTimePicker";
 import { Button } from "@/components/ui/button";
@@ -61,13 +60,13 @@ export default function Panchangam() {
   const p = mut.data;
 
   return (
-    <Layout>
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl md:text-[2rem] text-foreground flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          {t(UI.dailyAlmanac)}
+    <>
+      <div className="mb-5">
+        <h1 className="font-serif text-xl text-foreground flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-primary" />
+          {t(UI.panchangam)}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">{t(UI.disclaimer)}</p>
+        <p className="text-sm text-muted-foreground mt-1">{t(UI.dailyAlmanac)} · {t(UI.disclaimer)}</p>
       </div>
 
       <Card className="p-5 md:p-6 mb-8">
@@ -248,7 +247,7 @@ export default function Panchangam() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }
 

@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
+import { useNav } from "@/lib/nav";
 import { UI, RASIS, NAKSHATRAS, GRAHAS } from "@shared/astro/constants";
 import { DIGNITY_LABEL, DIGNITY_POINTS, type Dignity } from "@shared/astro/dignity";
 import type { ChartResult } from "@shared/astro/engine";
 import type { Chart } from "@shared/schema";
-import { Layout } from "@/components/Layout";
 import { RasiGrid, buildOccupants, DIGNITY_COLOR, DIGNITY_DOT } from "@/components/RasiGrid";
 import { NorthIndianChart } from "@/components/NorthIndianChart";
 import type { ChartScript } from "@shared/astro/constants";
@@ -21,8 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard, Grid3x3, Pencil, Check, User } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, MapPin, Clock, CalendarRange, LayoutDashboard, Grid3x3, Pencil, Check, User } from "lucide-react";
 
 // Format "HH:MM" (24h) as "h:MM AM/PM" for display.
 function formatTime12(time: string): string {
@@ -54,6 +53,7 @@ const CHENNAI_DEFAULT: GeoResult = {
 
 export default function Jathagam() {
   const { lang, t, chartStyle: preferredStyle } = useLang();
+  const { registerOpenSaved } = useNav();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -76,35 +76,6 @@ export default function Jathagam() {
   // Seed from the startup-chosen preference; still toggleable inline per-chart.
   const [chartStyle, setChartStyle] = useState<"south" | "north">(preferredStyle);
   const [chartScript, setChartScript] = useState<ChartScript>("en");
-
-  // Saved charts history
-  const savedQuery = useQuery<Chart[]>({ queryKey: ["/api/charts"] });
-
-  // Filters for saved charts
-  const [filterText, setFilterText] = useState("");
-  const [filterLagna, setFilterLagna] = useState("all");
-  const [filterRasi, setFilterRasi] = useState("all");
-  const [filterNak, setFilterNak] = useState("all");
-  const filtersActive = filterText.trim() !== "" || filterLagna !== "all" || filterRasi !== "all" || filterNak !== "all";
-
-  function matchesFilters(c: Chart): boolean {
-    const q = filterText.trim().toLowerCase();
-    if (q) {
-      const hay = `${c.name ?? ""} ${c.placeName ?? ""}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    if (filterLagna !== "all" && c.lagnaIndex !== Number(filterLagna)) return false;
-    if (filterRasi !== "all" && c.rasiIndex !== Number(filterRasi)) return false;
-    if (filterNak !== "all" && c.nakshatraIndex !== Number(filterNak)) return false;
-    return true;
-  }
-
-  function clearFilters() {
-    setFilterText("");
-    setFilterLagna("all");
-    setFilterRasi("all");
-    setFilterNak("all");
-  }
 
   const mut = useMutation<ChartResult, Error, void>({
     mutationFn: async () => {
@@ -146,13 +117,6 @@ export default function Jathagam() {
     },
   });
 
-  const delMut = useMutation<unknown, Error, number>({
-    mutationFn: async (id) => {
-      await apiRequest("DELETE", `/api/charts/${id}`);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/charts"] }),
-  });
-
   // Re-open a saved chart: repopulate the form (LOCKED) and regenerate.
   function openSaved(c: Chart) {
     setActiveChartId(c.id);
@@ -182,6 +146,13 @@ export default function Jathagam() {
       .then((data) => { setReopenedChart(data); });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // Expose openSaved to the Saved module (via nav context) so tapping a saved
+  // chart there switches to Jathagam and loads it here.
+  useEffect(() => {
+    registerOpenSaved(openSaved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset to a blank fresh-entry form (unlocks it, clears the opened chart).
   function resetForm() {
@@ -254,10 +225,10 @@ export default function Jathagam() {
   const chart = mut.data ?? reopenedChart;
 
   return (
-    <Layout>
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl md:text-[2rem] text-foreground flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
+    <>
+      <div className="mb-5">
+        <h1 className="font-serif text-xl text-foreground flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
           {t(UI.birthChart)}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">{t(UI.disclaimer)}</p>
@@ -648,114 +619,7 @@ export default function Jathagam() {
         </div>
       )}
 
-      {/* Saved charts history */}
-      <div className="mt-12">
-        <h2 className="font-serif text-lg mb-3 flex items-center gap-2">
-          <History className="h-4 w-4 text-primary" />
-          {t(UI.saved)}
-          {savedQuery.data && savedQuery.data.length > 0 && (
-            <span className="text-xs text-muted-foreground font-sans">({savedQuery.data.length})</span>
-          )}
-        </h2>
-        {savedQuery.isLoading && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-md" />)}
-          </div>
-        )}
-        {savedQuery.data && savedQuery.data.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t(UI.noCharts)}</p>
-        )}
-        {savedQuery.data && savedQuery.data.length > 0 && (() => {
-          const filtered = savedQuery.data!.filter(matchesFilters);
-          return (
-          <>
-            {/* Filter controls */}
-            <Card className="p-4 mb-4">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                <Filter className="h-3.5 w-3.5 text-primary" />
-                {t(UI.filters)}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Input
-                  placeholder={t(UI.filterName)}
-                  value={filterText}
-                  onChange={(e) => setFilterText(e.target.value)}
-                  data-testid="input-filter-name"
-                />
-                <Select value={filterLagna} onValueChange={setFilterLagna}>
-                  <SelectTrigger data-testid="select-filter-lagna"><SelectValue placeholder={t(UI.allLagna)} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t(UI.allLagna)}</SelectItem>
-                    {RASIS.map((r, i) => (
-                      <SelectItem key={i} value={String(i)}>{r[lang].split(" (")[0]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterRasi} onValueChange={setFilterRasi}>
-                  <SelectTrigger data-testid="select-filter-rasi"><SelectValue placeholder={t(UI.allRasi)} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t(UI.allRasi)}</SelectItem>
-                    {RASIS.map((r, i) => (
-                      <SelectItem key={i} value={String(i)}>{r[lang].split(" (")[0]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterNak} onValueChange={setFilterNak}>
-                  <SelectTrigger data-testid="select-filter-nakshatra"><SelectValue placeholder={t(UI.allNakshatra)} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t(UI.allNakshatra)}</SelectItem>
-                    {NAKSHATRAS.map((n, i) => (
-                      <SelectItem key={i} value={String(i)}>{n[lang]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {filtersActive && (
-                <div className="mt-3 flex items-center gap-3">
-                  <Button size="sm" variant="ghost" onClick={clearFilters} data-testid="button-clear-filters" className="gap-1.5">
-                    <X className="h-3.5 w-3.5" /> {t(UI.clearFilters)}
-                  </Button>
-                  <span className="text-xs text-muted-foreground" data-testid="text-filter-count">
-                    {filtered.length} / {savedQuery.data!.length}
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-matches">{t(UI.noMatches)}</p>
-            ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => (
-              <Card key={c.id} className="p-4 flex flex-col gap-2" data-testid={`card-saved-${c.id}`}>
-                <div className="font-medium text-base leading-tight truncate">
-                  {c.name?.trim() || t(UI.unnamed)}
-                </div>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" /> {c.date} · {c.time}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="h-3 w-3" /> <span className="truncate">{c.placeName}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openSaved(c)} data-testid={`button-open-${c.id}`}>
-                    {t(UI.loadChart)}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending} data-testid={`button-delete-${c.id}`} aria-label={t(UI.deleteChart)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-            )}
-          </>
-          );
-        })()}
-      </div>
-    </Layout>
+    </>
   );
 }
 
