@@ -1,14 +1,26 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import type { Bilingual } from "@shared/astro/constants";
 
-export type Lang = "ta" | "en";
+export type Lang = "ta" | "en" | "hi";
 export type ChartStyle = "south" | "north";
+
+// Ordered cycle for the 3-way toggle.
+const LANG_CYCLE: Lang[] = ["ta", "en", "hi"];
+
+// Safe accessor: prefers the requested language, then English, then Tamil.
+// This lets the app work even before every string has a Hindi translation.
+export function pick(b: Bilingual | undefined, lang: Lang): string {
+  if (!b) return "";
+  return (b as Record<string, string | undefined>)[lang] ?? b.en ?? b.ta ?? "";
+}
 
 interface LangCtx {
   lang: Lang;
   setLang: (l: Lang) => void;
   toggle: () => void;
-  t: (b: Bilingual) => string;
+  // t(b) uses the current global language. t(b, "en") forces a specific language
+  // (used by the setup screen so the preview updates live as the user selects).
+  t: (b: Bilingual | undefined, override?: Lang) => string;
   // Preferred chart style, chosen once at startup (toggleable later per-chart).
   chartStyle: ChartStyle;
   setChartStyle: (s: ChartStyle) => void;
@@ -24,8 +36,10 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const [chartStyle, setChartStyle] = useState<ChartStyle>("south");
   const [chosen, setChosen] = useState(false);
 
-  const toggle = () => setLang((l) => (l === "ta" ? "en" : "ta"));
-  const t = (b: Bilingual) => (b ? b[lang] : "");
+  const toggle = () =>
+    setLang((l) => LANG_CYCLE[(LANG_CYCLE.indexOf(l) + 1) % LANG_CYCLE.length]);
+
+  const t = (b: Bilingual | undefined, override?: Lang) => pick(b, override ?? lang);
 
   const confirmChoices = (l: Lang, style: ChartStyle) => {
     setLang(l);

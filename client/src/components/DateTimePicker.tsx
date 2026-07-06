@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useLang } from "@/lib/lang";
-import { UI, GREGORIAN_MONTHS } from "@shared/astro/constants";
+import { UI, GREGORIAN_MONTHS, tl } from "@shared/astro/constants";
 import { Label } from "@/components/ui/label";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -135,7 +135,7 @@ export function DateSelect({ date, setDate }: DateFields) {
   for (let yr = 1990; yr <= nowYear; yr++) years.push({ value: String(yr), label: String(yr) });
   for (let yr = 1989; yr >= 1900; yr--) years.push({ value: String(yr), label: String(yr) });
 
-  const months: WheelOption[] = GREGORIAN_MONTHS.map((m, i) => ({ value: pad2(i + 1), label: m[lang] }));
+  const months: WheelOption[] = GREGORIAN_MONTHS.map((m, i) => ({ value: pad2(i + 1), label: tl(m, lang) }));
 
   const curY = isNaN(y) ? 1990 : y;
   const curMo = isNaN(mo) ? 1 : mo;

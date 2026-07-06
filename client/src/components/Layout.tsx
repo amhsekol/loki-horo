@@ -84,7 +84,7 @@ export function Layout({ children }: { children: ReactNode }) {
               data-testid="button-lang"
               aria-label="Toggle language"
             >
-              {lang === "ta" ? "EN" : "த"}
+              {lang === "ta" ? "EN" : lang === "en" ? "हि" : "த"}
             </button>
             <button
               onClick={toggleTheme}

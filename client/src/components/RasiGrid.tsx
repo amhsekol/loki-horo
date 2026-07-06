@@ -1,5 +1,5 @@
 import { useLang } from "@/lib/lang";
-import { RASIS, GRAHA_SHORT, LAGNA_SHORT } from "@shared/astro/constants";
+import { RASIS, GRAHA_SHORT, LAGNA_SHORT, tl } from "@shared/astro/constants";
 import { computeDignity, type Dignity } from "@shared/astro/dignity";
 
 // Color per dignity for the planet glyph in chart cells.
@@ -74,7 +74,7 @@ export function RasiGrid({ title, occupants }: Props) {
               data-testid={`cell-sign-${sign}`}
             >
               <span className="text-[10px] leading-tight text-muted-foreground font-medium truncate">
-                {RASIS[sign][lang].split(" (")[0]}
+                {tl(RASIS[sign], lang).split(" (")[0]}
               </span>
               <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5 content-start flex-1">
                 {items.map((it, i) => (
@@ -127,14 +127,14 @@ export function buildOccupants(
   const push = (sign: number, item: Occupant) => {
     (map[sign] ??= []).push(item);
   };
-  if (lagnaSign >= 0) push(lagnaSign, { label: LAGNA_SHORT[lang], isLagna: true });
+  if (lagnaSign >= 0) push(lagnaSign, { label: tl(LAGNA_SHORT, lang), isLagna: true });
   planetSigns.forEach((sign, idx) => {
-    const item: Occupant = { label: GRAHA_SHORT[idx][lang], retro: retroFlags[idx] };
+    const item: Occupant = { label: tl(GRAHA_SHORT[idx], lang), retro: retroFlags[idx] };
     if (showDignity) {
       const d = computeDignity(idx, sign);
       if (d) {
         item.dignity = d.key;
-        item.dignityShort = d.short[lang];
+        item.dignityShort = tl(d.short, lang);
         item.points = d.points;
       }
     }

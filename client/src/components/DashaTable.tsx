@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLang } from "@/lib/lang";
-import { UI } from "@shared/astro/constants";
+import { UI, tl } from "@shared/astro/constants";
 import type { DashaTimeline, DashaNode } from "@shared/astro/dasha";
 import { Card } from "@/components/ui/card";
 import { ChevronRight, Layers } from "lucide-react";
@@ -84,7 +84,7 @@ function DashaRow({ node, level, lang, monthsLabel, yearsLabel, nowLabel }: RowP
           ) : (
             <span className="w-3.5 shrink-0" />
           )}
-          <span className={`font-medium ${GRAHA_COLOR[node.lordIndex] ?? ""}`}>{node.lord[lang]}</span>
+          <span className={`font-medium ${GRAHA_COLOR[node.lordIndex] ?? ""}`}>{tl(node.lord, lang)}</span>
           {active && (
             <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
               {nowLabel}
@@ -100,7 +100,7 @@ function DashaRow({ node, level, lang, monthsLabel, yearsLabel, nowLabel }: RowP
         <div className="border-l-2 border-primary/30 ml-3">
           {/* Sub-level header */}
           <div className="px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40" style={{ paddingLeft: indentPx + 24 }}>
-            {LEVEL_LABEL[level + 1]?.[lang]}
+            {tl(LEVEL_LABEL[level + 1], lang)}
           </div>
           {node.children!.map((child, i) => (
             <DashaRow
@@ -135,7 +135,7 @@ export function DashaTable({ dasha }: { dasha: DashaTimeline }) {
       </h2>
       <p className="text-sm text-muted-foreground mb-1">{t(UI.dashaSubtitle)}</p>
       <p className="text-sm text-muted-foreground mb-3">
-        {t(UI.balanceAtBirth)}: <span className="font-semibold text-foreground">{dasha.periods[0].lord[lang]}</span>{" "}
+        {t(UI.balanceAtBirth)}: <span className="font-semibold text-foreground">{tl(dasha.periods[0].lord, lang)}</span>{" "}
         · {dasha.balanceYears.toFixed(2)} {yearsLabel}
       </p>
 

@@ -67,23 +67,27 @@ export function SetupScreen() {
       <Card className="relative w-full max-w-md p-6 md:p-8" data-testid="setup-screen">
         <div className="flex flex-col items-center text-center mb-6">
           <Logo />
-          <h1 className="font-serif text-2xl mt-3">{t(UI.appName)}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t(UI.setupSubtitle)}</p>
+          <h1 className="font-serif text-2xl mt-3">{t(UI.appName, lang)}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t(UI.setupSubtitle, lang)}</p>
         </div>
 
         {/* Language selection */}
         <div className="mb-6">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-            <Languages className="h-3.5 w-3.5 text-primary" /> {t(UI.chooseLanguage)}
+            <Languages className="h-3.5 w-3.5 text-primary" /> {t(UI.chooseLanguage, lang)}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             <OptionButton
               active={lang === "ta"} onClick={() => setLang("ta")} testid="setup-lang-ta"
               primary="தமிழ்" secondary="Tamil"
             />
             <OptionButton
               active={lang === "en"} onClick={() => setLang("en")} testid="setup-lang-en"
-              primary="English" secondary="ஆங்கிலம்"
+              primary="English" secondary="English"
+            />
+            <OptionButton
+              active={lang === "hi"} onClick={() => setLang("hi")} testid="setup-lang-hi"
+              primary="हिन्दी" secondary="Hindi"
             />
           </div>
         </div>
@@ -91,18 +95,18 @@ export function SetupScreen() {
         {/* Chart style selection */}
         <div className="mb-6">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-            <Grid3x3 className="h-3.5 w-3.5 text-primary" /> {t(UI.chooseChartStyle)}
+            <Grid3x3 className="h-3.5 w-3.5 text-primary" /> {t(UI.chooseChartStyle, lang)}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <OptionButton
               active={style === "south"} onClick={() => setStyle("south")} testid="setup-style-south"
-              primary={lang === "ta" ? "தென்னிந்திய" : "South Indian"}
-              secondary={lang === "ta" ? "South Indian" : "தென்னிந்திய"}
+              primary={t(UI.southStyle, lang)}
+              secondary={t(UI.southStyle, "en")}
             />
             <OptionButton
               active={style === "north"} onClick={() => setStyle("north")} testid="setup-style-north"
-              primary={lang === "ta" ? "வட இந்திய" : "North Indian"}
-              secondary={lang === "ta" ? "North Indian" : "வட இந்திய"}
+              primary={t(UI.northStyle, lang)}
+              secondary={t(UI.northStyle, "en")}
             />
           </div>
         </div>
@@ -112,9 +116,9 @@ export function SetupScreen() {
           onClick={() => confirmChoices(lang, style)}
           data-testid="setup-continue"
         >
-          <Sparkles className="h-4 w-4" /> {t(UI.continueBtn)}
+          <Sparkles className="h-4 w-4" /> {t(UI.continueBtn, lang)}
         </Button>
-        <p className="text-[11px] text-muted-foreground text-center mt-3">{t(UI.changeLater)}</p>
+        <p className="text-[11px] text-muted-foreground text-center mt-3">{t(UI.changeLater, lang)}</p>
       </Card>
     </div>
   );

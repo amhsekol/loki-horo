@@ -1,5 +1,5 @@
 import { useLang } from "@/lib/lang";
-import { UI, RASIS, GRAHAS, GRAHA_SHORT } from "@shared/astro/constants";
+import { UI, RASIS, GRAHAS, GRAHA_SHORT, tl } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
 import { Card } from "@/components/ui/card";
 import { Grid3x3, Sparkles } from "lucide-react";
@@ -69,7 +69,7 @@ function AvGrid({
               data-testid={`${testid}-cell-${sign}`}
             >
               <span className="absolute top-0.5 left-1 text-[7px] leading-none text-muted-foreground">
-                {RASIS[sign][lang].split(" (")[0].slice(0, 3)}
+                {tl(RASIS[sign], lang).split(" (")[0].slice(0, 3)}
               </span>
               <span className="text-sm font-semibold tabular-nums">{v}</span>
             </div>
@@ -160,7 +160,7 @@ export function AshtakavargaChart({ chart }: Props) {
                     <span className="inline-flex items-center justify-center min-w-[2rem] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-semibold tabular-nums">
                       {s.v}
                     </span>
-                    <span className="font-medium">{RASIS[s.i][lang].split(" (")[0]}</span>
+                    <span className="font-medium">{tl(RASIS[s.i], lang).split(" (")[0]}</span>
                   </li>
                 ))}
               </ul>
@@ -197,7 +197,7 @@ export function AshtakavargaChart({ chart }: Props) {
               <AvGrid
                 values={av.bav[g]}
                 highlightSign={planetSign(g)}
-                center={GRAHA_SHORT[g][lang]}
+                center={tl(GRAHA_SHORT[g], lang)}
                 testid={`grid-bav-${g}`}
               />
             </div>
