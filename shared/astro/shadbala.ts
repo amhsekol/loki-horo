@@ -15,8 +15,10 @@
 // Planet indices: 0=Surya 1=Chandra 2=Sevvai 3=Budha 4=Guru 5=Sukra 6=Sani (7/8 nodes: no Shadbala)
 
 import type { Bilingual } from "./constants";
-import { GRAHAS } from "./constants";
+import { GRAHAS, RASI_LORDS } from "./constants";
 import type { PlanetPosition } from "./engine";
+import { computeDignity } from "./dignity";
+import { SAPTAVARGA } from "./varga";
 
 const EXALT_DEG: Record<number, number> = {
   // exact exaltation point on the zodiac (sidereal degrees 0..360)
@@ -74,6 +76,7 @@ export interface BalaComponent {
   key: string;
   label: Bilingual;
   virupas: number;
+  sub?: boolean; // sub-breakdown row (already included in a parent bala; excluded from total)
 }
 
 export interface ShadbalaResult {
@@ -132,10 +135,46 @@ function kendradiBala(lon: number, lagnaSign: number): number {
   return 15;
 }
 
-// Saptavargaja approximated from the current dignity points (0..100 -> 0..45 Virupas span).
-function saptavargajaApprox(dignityPoints: number | null): number {
-  if (dignityPoints == null) return 15;
-  return (dignityPoints / 100) * 45 + 7.5; // 7.5..52.5
+// Saptavargaja Bala — proper 7-varga positional strength.
+// For each of the 7 divisional charts (D1,D2,D3,D7,D9,D12,D30) we find the sign the
+// planet occupies and score its dignity there in Virupas per the classical scale:
+//   Moolatrikona 45, Own (swakshetra) 30, Great friend 22.5, Friend 15,
+//   Neutral 7.5, Enemy 3.75, Great enemy 1.875. Exalted is treated as own-tier (30).
+// The seven values are summed (max ~315 in the extreme; typical 60-150).
+const SAPTAVARGAJA_VIRUPAS: Record<string, number> = {
+  moolatrikona: 45,
+  uccham: 30,      // exalted counts at the own-sign tier for saptavargaja
+  aatchi: 30,      // own sign
+  natpu: 15,       // friend
+  samam: 7.5,      // neutral
+  pagai: 3.75,     // enemy
+  neecham: 1.875,  // debilitated -> great-enemy tier
+};
+
+function saptavargajaBala(pi: number, lon: number): number {
+  let sum = 0;
+  for (const vargaFn of SAPTAVARGA) {
+    const sign = vargaFn(lon);
+    const dig = computeDignity(pi, sign);
+    const key = dig?.key ?? "samam";
+    sum += SAPTAVARGAJA_VIRUPAS[key] ?? 7.5;
+  }
+  return sum;
+}
+
+// Dispositor bonus: "whoever gave the house is powerful strengthens the guest."
+// If the planet sits in another graha's sign, and that dispositor is itself well-placed
+// (exalted / moolatrikona / own / friendly), add a proportional bonus (0..30 Virupas).
+function dispositorBonus(pi: number, sign: number, planets: PlanetPosition[]): number {
+  const dispIndex = RASI_LORDS[sign];
+  if (dispIndex === pi) return 0; // in own sign already rewarded elsewhere
+  const disp = planets.find((x) => x.index === dispIndex);
+  if (!disp) return 0;
+  const pts = disp.dignity?.points ?? 20; // 0..100
+  // Only a *strong* dispositor confers a bonus; weak/enemy placement gives ~0.
+  // Map dignity points (0..100) to 0..30 Virupas, but require >= neutral (20) to count.
+  if (pts <= 20) return (pts / 20) * 5; // small: 0..5
+  return 5 + ((pts - 20) / 80) * 25;    // 5..30
 }
 
 function digBala(pi: number, lon: number, lagnaSid: number): number {
@@ -211,12 +250,14 @@ export function computeShadbala(
   const lon = p.siderealLon;
   const dignityPts = p.dignity?.points ?? null;
 
-  const sthana =
-    ucchaBala(pi, lon) +
-    saptavargajaApprox(dignityPts) +
-    ojaYugmaBala(pi, lon) +
-    kendradiBala(lon, lagnaSignIndex);
+  const uccha = ucchaBala(pi, lon);
+  const saptav = saptavargajaBala(pi, lon);
+  const ojaYugma = ojaYugmaBala(pi, lon);
+  const kendradi = kendradiBala(lon, lagnaSignIndex);
+  const dispBonus = dispositorBonus(pi, p.rasiIndex, ctx.planets);
+  const sthana = uccha + saptav + ojaYugma + kendradi + dispBonus;
   const dig = digBala(pi, lon, lagnaSid);
+  void dignityPts;
   const kaala = kaalaBala(pi, ctx);
   const cheshta = cheshtaBala(pi, p.retrograde, ctx);
   const naisargika = naisargikaBala(pi);
@@ -224,6 +265,8 @@ export function computeShadbala(
 
   const components: BalaComponent[] = [
     { key: "sthana", label: { ta: "ஸ்தான பலம்", en: "Sthana (Positional)" }, virupas: sthana },
+    { key: "saptavargaja", label: { ta: "— ஸப்தவர்கஜ", en: "— Saptavargaja (7 vargas)" }, virupas: saptav, sub: true },
+    { key: "dispositor", label: { ta: "— அதிபதி பலம்", en: "— Dispositor bonus" }, virupas: dispBonus, sub: true },
     { key: "dig", label: { ta: "திக் பலம்", en: "Dig (Directional)" }, virupas: dig },
     { key: "kaala", label: { ta: "கால பலம்", en: "Kaala (Temporal)" }, virupas: kaala },
     { key: "cheshta", label: { ta: "சேஷ்டா பலம்", en: "Cheshta (Motional)" }, virupas: cheshta },
@@ -231,7 +274,7 @@ export function computeShadbala(
     { key: "drik", label: { ta: "திருஷ்டி பலம்", en: "Drik (Aspectual)" }, virupas: drik },
   ];
 
-  const totalVirupas = components.reduce((s, c) => s + c.virupas, 0);
+  const totalVirupas = components.reduce((s, c) => s + (c.sub ? 0 : c.virupas), 0);
   const totalRupas = totalVirupas / 60;
   const requiredRupas = REQUIRED_RUPAS[pi] ?? 6;
   const ratio = totalRupas / requiredRupas;

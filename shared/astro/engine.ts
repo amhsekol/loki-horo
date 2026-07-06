@@ -15,6 +15,7 @@ import { computeDignity, type DignityResult } from "./dignity";
 import { analyzeLagna, type LagnaAnalysis } from "./lagna-analysis";
 import { computeShadbala, type ShadbalaResult, type ShadbalaContext } from "./shadbala";
 import { computeDasha, type DashaTimeline } from "./dasha";
+import { computeAshtakavarga, type AshtakavargaResult, type AvContributor } from "./ashtakavarga";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -165,6 +166,7 @@ export interface ChartResult {
   dasha: DashaTimeline;
   lagnaAnalysis: LagnaAnalysis;
   lagnaLordShadbala: ShadbalaResult | null;
+  ashtakavarga: AshtakavargaResult;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -242,6 +244,19 @@ export function computeChart(input: {
     lagnaAnalysis.lordIndex, lagnaSid, lagnaRasi, shadbalaCtx,
   );
 
+  // Ashtakavarga: contributors are Sun..Saturn (planets[0..6]) + Lagna.
+  const signByContributor: Record<AvContributor, number> = {
+    sun: planets[0].rasiIndex,
+    moon: planets[1].rasiIndex,
+    mars: planets[2].rasiIndex,
+    mercury: planets[3].rasiIndex,
+    jupiter: planets[4].rasiIndex,
+    venus: planets[5].rasiIndex,
+    saturn: planets[6].rasiIndex,
+    lagna: lagnaRasi,
+  };
+  const ashtakavarga = computeAshtakavarga(signByContributor);
+
   return {
     meta: {
       date: input.date, time: input.time,
@@ -260,6 +275,7 @@ export function computeChart(input: {
     dasha,
     lagnaAnalysis,
     lagnaLordShadbala,
+    ashtakavarga,
   };
 }
 

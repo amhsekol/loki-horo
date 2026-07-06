@@ -15,13 +15,14 @@ import { DateSelect, TimeSelect } from "@/components/DateTimePicker";
 import { DashaTable } from "@/components/DashaTable";
 import { IncidentsTab } from "@/components/IncidentsTab";
 import { LagnaDashboard } from "@/components/LagnaDashboard";
+import { AshtakavargaChart } from "@/components/AshtakavargaChart";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard, Grid3x3 } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -53,7 +54,7 @@ export default function Jathagam() {
   const [reopenedChart, setReopenedChart] = useState<ChartResult | null>(null);
   // Saved-chart id of the currently displayed chart (for attaching incidents).
   const [activeChartId, setActiveChartId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "incidents">("chart");
+  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "incidents">("chart");
   const [chartStyle, setChartStyle] = useState<"south" | "north">("south");
   const [chartScript, setChartScript] = useState<ChartScript>("en");
 
@@ -237,6 +238,18 @@ export default function Jathagam() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab("ashtakavarga")}
+              data-testid="tab-ashtakavarga"
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "ashtakavarga"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Grid3x3 className="h-4 w-4" /> {t(UI.ashtavargaTab)}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("incidents")}
               data-testid="tab-incidents"
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
@@ -253,6 +266,8 @@ export default function Jathagam() {
             <IncidentsTab chartId={activeChartId} chartLabel={name.trim() || undefined} />
           ) : activeTab === "dashboard" ? (
             <LagnaDashboard chart={chart} />
+          ) : activeTab === "ashtakavarga" ? (
+            <AshtakavargaChart chart={chart} />
           ) : (
           <div className="space-y-8">
           {/* Summary badges */}

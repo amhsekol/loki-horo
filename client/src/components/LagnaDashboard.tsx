@@ -3,7 +3,7 @@ import { UI } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
 import type { DignityResult } from "@shared/astro/dignity";
 import { Card } from "@/components/ui/card";
-import { Compass, Crown, Sparkles, Eye, Link2, Gauge } from "lucide-react";
+import { Compass, Crown, Sparkles, Eye, Link2, Gauge, Home } from "lucide-react";
 
 interface Props {
   chart: ChartResult | null;
@@ -46,7 +46,9 @@ export function LagnaDashboard({ chart }: Props) {
     ) : null;
 
   // Shadbala bar: scale each component's virupas against a nominal 150 max for the bar.
-  const maxComp = sb ? Math.max(60, ...sb.components.map((c) => Math.abs(c.virupas))) : 60;
+  const maxComp = sb
+    ? Math.max(60, ...sb.components.filter((c) => !c.sub).map((c) => Math.abs(c.virupas)))
+    : 60;
 
   const verdictTone =
     sb == null
@@ -99,6 +101,29 @@ export function LagnaDashboard({ chart }: Props) {
             {t(UI.inSign)} {t(la.lord.sign)} · {fmtDeg(la.lord.degInRasi)} ·{" "}
             {la.lord.houseFromLagna}{lang === "ta" ? "-ஆம் " : ""} {t(UI.house)}
           </div>
+
+          {/* Dispositor (sign lord) — the planet who owns the sign the lagna lord sits in */}
+          <div className="mt-2 pt-2 border-t border-border/60" data-testid="text-dispositor">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Home className="h-3.5 w-3.5" /> {t(UI.dispositor)}
+            </div>
+            {la.lord.dispositorInOwnSign ? (
+              <div className="mt-0.5 text-sm">
+                <span className="font-medium">{t(la.lord.dispositorName)}</span>{" "}
+                <span className="text-muted-foreground">· {t(UI.lordIsOwnDispositor)}</span>
+              </div>
+            ) : (
+              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-sm">
+                <span className="font-medium">{t(la.lord.dispositorName)}</span>
+                <DignityChip dig={la.lord.dispositorDignity} />
+                {la.lord.dispositorDignity && la.lord.dispositorDignity.points >= 60 && (
+                  <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                    {t(UI.dispositorOwnSign)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -125,6 +150,12 @@ export function LagnaDashboard({ chart }: Props) {
               {t(UI.rupas)} · {t(UI.required)} {sb.requiredRupas.toFixed(1)} ·{" "}
               {(sb.ratio * 100).toFixed(0)}%
             </span>
+            <span
+              className="ml-auto text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums"
+              data-testid="text-lord-degree"
+            >
+              {t(la.lord.name)} · {t(la.lord.sign)} {fmtDeg(la.lord.degInRasi)}
+            </span>
           </div>
 
           {/* Component bars */}
@@ -132,20 +163,29 @@ export function LagnaDashboard({ chart }: Props) {
             {sb.components.map((c) => {
               const pct = Math.max(0, Math.min(100, (c.virupas / maxComp) * 100));
               const neg = c.virupas < 0;
+              const isDrikZero = c.key === "drik" && c.virupas === 0;
               return (
-                <div key={c.key} data-testid={`bala-${c.key}`}>
+                <div
+                  key={c.key}
+                  data-testid={`bala-${c.key}`}
+                  className={c.sub ? "pl-4" : ""}
+                >
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-foreground">{t(c.label)}</span>
+                    <span className={c.sub ? "text-muted-foreground" : "text-foreground"}>
+                      {t(c.label)}
+                    </span>
                     <span className="text-muted-foreground tabular-nums">
-                      {c.virupas.toFixed(1)} {t(UI.virupas)}
+                      {isDrikZero ? t(UI.drikNoAspects) : `${c.virupas.toFixed(1)} ${t(UI.virupas)}`}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${neg ? "bg-destructive/70" : "bg-primary/70"}`}
-                      style={{ width: `${neg ? 12 : pct}%` }}
-                    />
-                  </div>
+                  {!isDrikZero && (
+                    <div className={`rounded-full bg-muted overflow-hidden ${c.sub ? "h-1.5" : "h-2"}`}>
+                      <div
+                        className={`h-full rounded-full ${neg ? "bg-destructive/70" : c.sub ? "bg-primary/40" : "bg-primary/70"}`}
+                        style={{ width: `${neg ? 12 : pct}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}

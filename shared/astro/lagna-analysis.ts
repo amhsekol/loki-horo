@@ -85,6 +85,11 @@ export interface LagnaLordInfo {
   houseFromLagna: number;   // which house (1..12) the lord occupies from Lagna
   conjunctions: LordConjunction[];
   aspectedBy: AspectToLagna[]; // planets aspecting the lord's sign
+  // Dispositor: the lord of the sign the lagna-lord occupies (who "gave the house").
+  dispositorIndex: number;
+  dispositorName: Bilingual;
+  dispositorInOwnSign: boolean;        // true when the lord is itself in its own sign
+  dispositorDignity: DignityResult | null; // the dispositor's own dignity/strength
 }
 
 export interface LagnaAnalysis {
@@ -188,6 +193,10 @@ export function analyzeLagna(
     .filter((x): x is AspectToLagna => x != null)
     .sort((a, b) => a.aspectHouse - b.aspectHouse);
 
+  // Dispositor of the lagna lord (lord of the sign the lagna-lord sits in).
+  const dispositorIndex = RASI_LORDS[lordSign];
+  const dispositorPlanet = planets.find((p) => p.index === dispositorIndex);
+
   const lord: LagnaLordInfo = {
     index: lordIndex,
     name: GRAHAS[lordIndex],
@@ -199,6 +208,10 @@ export function analyzeLagna(
     houseFromLagna: houseCount(lagnaSignIndex, lordSign),
     conjunctions,
     aspectedBy,
+    dispositorIndex,
+    dispositorName: GRAHAS[dispositorIndex],
+    dispositorInOwnSign: dispositorIndex === lordIndex,
+    dispositorDignity: dispositorPlanet?.dignity ?? null,
   };
 
   return {

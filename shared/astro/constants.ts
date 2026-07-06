@@ -363,6 +363,25 @@ export const UI: Record<string, Bilingual> = {
   strong: { ta: "வலிமையானது", en: "Strong" },
   moderate: { ta: "நடுத்தரம்", en: "Moderate" },
   weak: { ta: "பலவீனம்", en: "Weak" },
+  dispositor: { ta: "அதிபதி (வீட்டு எஜமான்)", en: "Dispositor (sign lord)" },
+  dispositorOwnSign: { ta: "தன் சொந்த வீட்டில் — ஆட்சி", en: "in its own sign — powerful" },
+  lordIsOwnDispositor: { ta: "லக்னாதிபதியே தன் வீட்டில் உள்ளார்", en: "lord is in its own sign" },
+  drikNoAspects: { ta: "0 (பார்வை இல்லை)", en: "0 (no aspects)" },
+  // Ashtakavarga
+  ashtakavarga: { ta: "அஷ்டகவர்க்கம்", en: "Ashtakavarga" },
+  ashtavargaTab: { ta: "அஷ்டகவர்க்கம்", en: "Ashtakavarga" },
+  ashtakavargaSubtitle: {
+    ta: "ஒவ்வொரு ராசியின் பலம் — சர்வ (SAV) மற்றும் ஒவ்வொரு கிரகத்தின் பின்ன (BAV) பிந்துக்கள்.",
+    en: "Benefic-point strength of each sign — Sarva (SAV) and per-planet Bhinna (BAV) bindus.",
+  },
+  sav: { ta: "சர்வாஷ்டகவர்க்கம் (SAV)", en: "Sarvashtakavarga (SAV)" },
+  savDesc: {
+    ta: "எல்லா கிரகங்களின் மொத்த பிந்துக்கள் (மொத்தம் 337).",
+    en: "Total bindus from all planets per sign (sums to 337).",
+  },
+  bindus: { ta: "பிந்துக்கள்", en: "bindus" },
+  bavPerPlanet: { ta: "ஒவ்வொரு கிரகத்தின் பின்னாஷ்டகவர்க்கம் (BAV)", en: "Per-planet Bhinnashtakavarga (BAV)" },
+  strongSigns: { ta: "வலிமையான ராசிகள் (30+ SAV)", en: "Strong signs (30+ SAV)" },
   dashNeedChart: {
     ta: "பகுப்பாய்வைக் காண முதலில் ஒரு ஜாதகத்தை உருவாக்கவும் அல்லது திறக்கவும்.",
     en: "Generate or open a chart first to see the analysis.",
