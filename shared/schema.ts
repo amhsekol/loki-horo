@@ -27,6 +27,32 @@ export const insertChartSchema = createInsertSchema(charts).omit({
 export type InsertChart = z.infer<typeof insertChartSchema>;
 export type Chart = typeof charts.$inferSelect;
 
+// Life incidents/events recorded against a specific chart (jathagam).
+export const incidents = sqliteTable("incidents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  chartId: integer("chart_id").notNull(),
+  name: text("name").notNull(),
+  startDate: text("start_date").notNull(), // YYYY-MM-DD
+  endDate: text("end_date").notNull(),     // YYYY-MM-DD (== startDate when single day)
+  singleDay: integer("single_day").notNull(), // 1 = one-day event, 0 = range
+  kind: text("kind").notNull(),            // "good" | "bad"
+  note: text("note"),                      // optional free text
+  createdAt: integer("created_at").notNull(),
+});
+
+export const insertIncidentSchema = createInsertSchema(incidents)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    kind: z.enum(["good", "bad"]),
+    singleDay: z.union([z.literal(0), z.literal(1)]),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    note: z.string().nullish(),
+  });
+
+export type InsertIncident = z.infer<typeof insertIncidentSchema>;
+export type Incident = typeof incidents.$inferSelect;
+
 // Request schema for chart computation
 export const computeChartSchema = z.object({
   name: z.string().default(""),
@@ -41,6 +67,7 @@ export type ComputeChartInput = z.infer<typeof computeChartSchema>;
 // Request schema for panchangam
 export const panchangamSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   tzOffset: z.number().min(-14).max(14),

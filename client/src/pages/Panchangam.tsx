@@ -6,14 +6,14 @@ import { UI, GRAHAS, RASIS, NAKSHATRAS } from "@shared/astro/constants";
 import type { PanchangamResult } from "@shared/astro/engine";
 import { Layout } from "@/components/Layout";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
-import { Input } from "@/components/ui/input";
+import { DateSelect, TimeSelect } from "@/components/DateTimePicker";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RasiGrid, buildOccupants, DIGNITY_COLOR } from "@/components/RasiGrid";
 import type { Dignity } from "@shared/astro/dignity";
-import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot, Orbit } from "lucide-react";
+import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot, Orbit, Compass } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -33,9 +33,15 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function nowTimeStr() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export default function Panchangam() {
   const { lang, t } = useLang();
   const [date, setDate] = useState(todayStr());
+  const [time, setTime] = useState(nowTimeStr());
   const [place, setPlace] = useState<GeoResult>(CHENNAI);
   const [placeLabel, setPlaceLabel] = useState("Chennai");
 
@@ -43,7 +49,7 @@ export default function Panchangam() {
     mutationFn: async () => {
       const tz = tzOffsetHours(place.timezone, date);
       const res = await apiRequest("POST", "/api/panchangam", {
-        date, latitude: place.latitude, longitude: place.longitude, tzOffset: tz,
+        date, time, latitude: place.latitude, longitude: place.longitude, tzOffset: tz,
       });
       return res.json();
     },
@@ -65,19 +71,23 @@ export default function Panchangam() {
       </div>
 
       <Card className="p-5 md:p-6 mb-8">
-        <div className="grid gap-4 md:grid-cols-[1fr_1.5fr_auto] md:items-end">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[1.5fr_1.2fr_1.3fr_auto] md:items-end">
           <div>
-            <Label htmlFor="pdate" className="mb-1.5 block">{t(UI.date)}</Label>
-            <div className="flex gap-2">
-              <Input id="pdate" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-pdate" />
-              <Button variant="outline" onClick={() => setDate(todayStr())} data-testid="button-today">{t(UI.useNow)}</Button>
+            <Label className="mb-1.5 block">{t(UI.date)}</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1"><DateSelect date={date} setDate={setDate} /></div>
+              <Button variant="outline" onClick={() => { setDate(todayStr()); setTime(nowTimeStr()); }} data-testid="button-today">{t(UI.useNow)}</Button>
             </div>
+          </div>
+          <div>
+            <Label className="mb-1.5 block">{t(UI.time)}</Label>
+            <TimeSelect time={time} setTime={setTime} />
           </div>
           <div>
             <Label className="mb-1.5 block">{t(UI.place)}</Label>
             <PlaceSearch value={placeLabel} onSelect={(pl) => { setPlace(pl); setPlaceLabel(pl.name); }} />
           </div>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending} data-testid="button-calc">
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending} data-testid="button-calc" className="md:self-end">
             {mut.isPending ? t(UI.loading) : t(UI.calculate)}
           </Button>
         </div>
@@ -104,6 +114,39 @@ export default function Panchangam() {
               </div>
             </div>
           </Card>
+
+          {/* Lagna (Ascendant) */}
+          {p.lagnaNow && (
+            <div>
+              <h2 className="font-serif text-lg mb-3 flex items-center gap-2">
+                <Compass className="h-4 w-4 text-primary" />
+                {t(UI.lagnaLabel)}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Card className="p-4 border-primary/30 bg-primary/5" data-testid="card-lagna-now">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+                    <span className="text-primary"><Compass className="h-4 w-4" /></span>
+                    {t(UI.lagnaNow)} · {p.lagnaNow.atTime}
+                  </div>
+                  <div className="font-serif text-lg leading-snug" data-testid="text-lagna-now">
+                    {RASIS[p.lagnaNow.rasiIndex][lang].split(" (")[0]}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 font-mono tabular-nums">{fmtDeg(p.lagnaNow.degInRasi)}</div>
+                </Card>
+                <Card className="p-4" data-testid="card-lagna-sunrise">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+                    <span className="text-primary"><Sunrise className="h-4 w-4" /></span>
+                    {t(UI.lagnaAtSunrise)}
+                  </div>
+                  <div className="font-serif text-lg leading-snug">
+                    {RASIS[p.lagnaSunrise.rasiIndex][lang].split(" (")[0]}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 font-mono tabular-nums">{fmtDeg(p.lagnaSunrise.degInRasi)}</div>
+                </Card>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">{t(UI.lagnaNote)}</p>
+            </div>
+          )}
 
           {/* Panchangam five limbs */}
           <div>

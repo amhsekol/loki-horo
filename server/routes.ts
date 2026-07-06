@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "node:http";
 import { storage } from "./storage";
 import { computeChart, computePanchangam } from "@shared/astro/engine";
-import { computeChartSchema, panchangamSchema, insertChartSchema } from "@shared/schema";
+import { computeChartSchema, panchangamSchema, insertChartSchema, insertIncidentSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -53,6 +53,25 @@ export async function registerRoutes(
   app.delete("/api/charts/:id", async (req, res) => {
     const id = z.coerce.number().parse(req.params.id);
     res.json(await storage.deleteChart(id));
+  });
+
+  // Incidents (life events) recorded against a chart.
+  app.get("/api/charts/:chartId/incidents", async (req, res) => {
+    const chartId = z.coerce.number().parse(req.params.chartId);
+    res.json(await storage.listIncidents(chartId));
+  });
+
+  app.post("/api/incidents", async (req, res) => {
+    const parsed = insertIncidentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    res.json(await storage.createIncident(parsed.data));
+  });
+
+  app.delete("/api/incidents/:id", async (req, res) => {
+    const id = z.coerce.number().parse(req.params.id);
+    res.json(await storage.deleteIncident(id));
   });
 
   // Geocoding proxy (Open-Meteo — free, no key). Returns city matches with lat/lon/timezone.

@@ -12,6 +12,7 @@ import {
   tithiName, type Bilingual,
 } from "./constants";
 import { computeDignity, type DignityResult } from "./dignity";
+import { computeDasha, type DashaTimeline } from "./dasha";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -110,7 +111,7 @@ function buildPosition(index: number, sid: number, retro: boolean): PlanetPositi
 
 // ---- Lagna (Ascendant) --------------------------------------------------
 // Compute the sidereal ascendant using local sidereal time + obliquity.
-function computeLagna(time: Astronomy.AstroTime, latDeg: number, lonDeg: number, jd: number): number {
+export function computeLagna(time: Astronomy.AstroTime, latDeg: number, lonDeg: number, jd: number): number {
   // Greenwich Apparent Sidereal Time (hours) -> degrees
   const gast = Astronomy.SiderealTime(time); // hours
   const lstDeg = norm360(gast * 15 + lonDeg); // local sidereal time in degrees (RAMC)
@@ -159,6 +160,7 @@ export interface ChartResult {
   janmaRasi: Bilingual; // Moon sign
   janmaNakshatra: Bilingual;
   janmaPada: number;
+  dasha: DashaTimeline;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -204,6 +206,14 @@ export function computeChart(input: {
 
   const moon = planets[1];
 
+  // Vimshottari Dasha from the Moon's sidereal longitude at birth.
+  // Build the birth epoch from the civil date/time components (treated as UTC so
+  // the displayed dasha start/end dates align with the entered local clock time).
+  const [by, bm, bd] = input.date.split("-").map(Number);
+  const [bh, bmin] = input.time.split(":").map(Number);
+  const birthEpoch = new Date(Date.UTC(by, (bm || 1) - 1, bd || 1, bh || 0, bmin || 0, 0));
+  const dasha = computeDasha(moon.siderealLon, birthEpoch, 3, 1);
+
   return {
     meta: {
       date: input.date, time: input.time,
@@ -219,6 +229,7 @@ export function computeChart(input: {
     janmaRasi: moon.rasi,
     janmaNakshatra: moon.nakshatra,
     janmaPada: moon.pada,
+    dasha,
   };
 }
 
@@ -240,6 +251,10 @@ export interface PanchangamResult {
   kuligai: { start: string; end: string };
   ayanamsa: number;
   planets: PlanetPosition[]; // planetary positions at sunrise (reference time)
+  // Lagna (ascendant). Rises through all 12 signs each day (~2h per sign),
+  // so we report it both at the selected clock time and at sunrise.
+  lagnaNow: { rasiIndex: number; rasi: Bilingual; degInRasi: number; atTime: string };
+  lagnaSunrise: { rasiIndex: number; rasi: Bilingual; degInRasi: number };
 }
 
 function fmtTime(date: Date | null, tzOffset: number): string | null {
@@ -270,9 +285,10 @@ function segmentWindow(sunriseLocalMin: number, sunsetLocalMin: number, seg: num
 }
 
 export function computePanchangam(input: {
-  date: string; latitude: number; longitude: number; tzOffset: number;
+  date: string; latitude: number; longitude: number; tzOffset: number; time?: string;
 }): PanchangamResult {
   const { date, latitude, longitude, tzOffset } = input;
+  const time = input.time && /^\d{2}:\d{2}$/.test(input.time) ? input.time : "12:00";
   const [y, m, d] = date.split("-").map(Number);
   const observer = new Astronomy.Observer(latitude, longitude, 0);
 
@@ -351,9 +367,29 @@ export function computePanchangam(input: {
     kuli = segmentWindow(srMin, ssMin, KULI_SEG[varaIndex]);
   }
 
+  // ---- Lagna (Ascendant) ----
+  // At the selected clock time on this date.
+  const [lhh, lmm] = time.split(":").map(Number);
+  const timeUtcMillis = Date.UTC(y, m - 1, d, lhh, lmm, 0) - tzOffset * 3600 * 1000;
+  const timeInstant = Astronomy.MakeTime(new Date(timeUtcMillis));
+  const timeJd = julianDay(timeInstant);
+  const lagNowSid = computeLagna(timeInstant, latitude, longitude, timeJd);
+  const lagNowRasi = Math.floor(lagNowSid / 30) % 12;
+  // At sunrise (traditional reference).
+  const lagSrSid = computeLagna(refTime, latitude, longitude, refJd);
+  const lagSrRasi = Math.floor(lagSrSid / 30) % 12;
+
   return {
     date,
     vara: VARAS[varaIndex],
+    lagnaNow: {
+      rasiIndex: lagNowRasi, rasi: RASIS[lagNowRasi],
+      degInRasi: lagNowSid - lagNowRasi * 30, atTime: time,
+    },
+    lagnaSunrise: {
+      rasiIndex: lagSrRasi, rasi: RASIS[lagSrRasi],
+      degInRasi: lagSrSid - lagSrRasi * 30,
+    },
     tamilMonth,
     tamilDay,
     tithi: { name: tithiName(tithiIndex), endTime: null },

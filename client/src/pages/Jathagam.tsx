@@ -9,13 +9,16 @@ import type { Chart } from "@shared/schema";
 import { Layout } from "@/components/Layout";
 import { RasiGrid, buildOccupants, DIGNITY_COLOR, DIGNITY_DOT } from "@/components/RasiGrid";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
+import { DateSelect, TimeSelect } from "@/components/DateTimePicker";
+import { DashaTable } from "@/components/DashaTable";
+import { IncidentsTab } from "@/components/IncidentsTab";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -33,6 +36,9 @@ export default function Jathagam() {
   const [place, setPlace] = useState<GeoResult | null>(null);
   const [placeLabel, setPlaceLabel] = useState("");
   const [reopenedChart, setReopenedChart] = useState<ChartResult | null>(null);
+  // Saved-chart id of the currently displayed chart (for attaching incidents).
+  const [activeChartId, setActiveChartId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"chart" | "incidents">("chart");
 
   // Saved charts history
   const savedQuery = useQuery<Chart[]>({ queryKey: ["/api/charts"] });
@@ -66,6 +72,8 @@ export default function Jathagam() {
   const mut = useMutation<ChartResult, Error, void>({
     mutationFn: async () => {
       setReopenedChart(null);
+      setActiveChartId(null);
+      setActiveTab("chart");
       if (!place) throw new Error("Select a place");
       const tz = tzOffsetHours(place.timezone, date);
       const res = await apiRequest("POST", "/api/chart", {
@@ -78,7 +86,7 @@ export default function Jathagam() {
       // Auto-save every generated jathagam to history (with computed values for filtering).
       try {
         const moon = result.planets[1]; // Chandra -> Janma Rasi / Nakshatra
-        await apiRequest("POST", "/api/charts", {
+        const saveRes = await apiRequest("POST", "/api/charts", {
           name: name.trim() || "",
           date, time,
           placeName: place.name,
@@ -89,6 +97,8 @@ export default function Jathagam() {
           rasiIndex: moon.rasiIndex,
           nakshatraIndex: moon.nakshatraIndex,
         });
+        const saved: Chart = await saveRes.json();
+        setActiveChartId(saved.id);
         queryClient.invalidateQueries({ queryKey: ["/api/charts"] });
       } catch { /* saving is best-effort; don't block the chart */ }
       return result;
@@ -104,6 +114,8 @@ export default function Jathagam() {
 
   // Re-open a saved chart: repopulate the form and regenerate.
   function openSaved(c: Chart) {
+    setActiveChartId(c.id);
+    setActiveTab("chart");
     setName(c.name);
     setDate(c.date);
     setTime(c.time);
@@ -147,12 +159,12 @@ export default function Jathagam() {
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />
           </div>
           <div>
-            <Label htmlFor="dob" className="mb-1.5 block">{t(UI.dob)}</Label>
-            <Input id="dob" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-date" />
+            <Label className="mb-1.5 block">{t(UI.dob)}</Label>
+            <DateSelect date={date} setDate={setDate} />
           </div>
           <div>
-            <Label htmlFor="tob" className="mb-1.5 block">{t(UI.tob)}</Label>
-            <Input id="tob" type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="input-time" />
+            <Label className="mb-1.5 block">{t(UI.tob)}</Label>
+            <TimeSelect time={time} setTime={setTime} />
           </div>
           <div className="md:col-span-2">
             <Label className="mb-1.5 block">{t(UI.pob)}</Label>
@@ -180,6 +192,38 @@ export default function Jathagam() {
 
       {chart && !mut.isPending && (
         <div className="space-y-8">
+          {/* Tab switcher: Chart vs Incidents */}
+          <div className="flex items-center gap-1 border-b border-card-border">
+            <button
+              type="button"
+              onClick={() => setActiveTab("chart")}
+              data-testid="tab-chart"
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "chart"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="h-4 w-4" /> {t(UI.tabChart)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("incidents")}
+              data-testid="tab-incidents"
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "incidents"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarRange className="h-4 w-4" /> {t(UI.tabIncidents)}
+            </button>
+          </div>
+
+          {activeTab === "incidents" ? (
+            <IncidentsTab chartId={activeChartId} chartLabel={name.trim() || undefined} />
+          ) : (
+          <div className="space-y-8">
           {/* Summary badges */}
           <div className="grid gap-3 sm:grid-cols-3">
             <SummaryCard icon={<Sunrise className="h-4 w-4" />} label={t(UI.lagnaLabel)}
@@ -283,6 +327,15 @@ export default function Jathagam() {
               </div>
             </div>
           </div>
+
+          {/* Vimshottari Dasha timeline (birth → 120 yrs), nested & expandable */}
+          {chart.dasha && (
+            <div className="mt-10">
+              <DashaTable dasha={chart.dasha} />
+            </div>
+          )}
+          </div>
+          )}
         </div>
       )}
 

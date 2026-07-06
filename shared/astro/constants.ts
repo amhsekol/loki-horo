@@ -189,6 +189,22 @@ export const TAMIL_MONTHS: Bilingual[] = [
   { ta: "பங்குனி", en: "Panguni" },
 ];
 
+// Gregorian calendar months (for date pickers) — bilingual
+export const GREGORIAN_MONTHS: Bilingual[] = [
+  { ta: "ஜனவரி", en: "January" },
+  { ta: "பிப்ரவரி", en: "February" },
+  { ta: "மார்ச்", en: "March" },
+  { ta: "ஏப்ரல்", en: "April" },
+  { ta: "மே", en: "May" },
+  { ta: "ஜூன்", en: "June" },
+  { ta: "ஜூலை", en: "July" },
+  { ta: "ஆகஸ்ட்", en: "August" },
+  { ta: "செப்டம்பர்", en: "September" },
+  { ta: "அக்டோபர்", en: "October" },
+  { ta: "நவம்பர்", en: "November" },
+  { ta: "டிசம்பர்", en: "December" },
+];
+
 // Rasi lords (adhipathi) — index into GRAHAS (0=Sun..6=Saturn)
 export const RASI_LORDS = [2, 5, 3, 1, 0, 3, 5, 2, 4, 6, 6, 4];
 
@@ -251,6 +267,61 @@ export const UI: Record<string, Bilingual> = {
   dignity: { ta: "கிரக பலம்", en: "Dignity" },
   strength: { ta: "மதிப்பு", en: "Strength" },
   dignityLegend: { ta: "கிரக பல அளவுகோல்", en: "Planetary Strength Scale" },
+  year: { ta: "வருடம்", en: "Year" },
+  month: { ta: "மாதம்", en: "Month" },
+  day: { ta: "தேதி", en: "Day" },
+  hour: { ta: "மணி", en: "Hour" },
+  minute: { ta: "நிமிடம்", en: "Minute" },
+  ampm: { ta: "AM/PM", en: "AM/PM" },
+  dashaTitle: { ta: "விம்ஷோத்தரி தசா (கால அட்டவணை)", en: "Vimshottari Dasha (Planetary Periods)" },
+  dashaSubtitle: {
+    ta: "பிறப்பிலிருந்து 120 ஆண்டுகள் — தசா ▸ புக்தி ▸ அந்தரம் ▸ சூட்சுமம். விரிவாக்க வரிசைக் கிளிக் செய்யவும்.",
+    en: "120 years from birth — Dasha ▸ Bhukti ▸ Antharam ▸ Sookshma. Click a row to expand.",
+  },
+  mahaDasha: { ta: "தசா (மகா தசா)", en: "Maha Dasha" },
+  bhukti: { ta: "புக்தி (அந்தர் தசா)", en: "Bhukti (Antardasha)" },
+  antharam: { ta: "அந்தரம் (ப்ரத்யந்தர்)", en: "Antharam (Pratyantardasha)" },
+  sookshma: { ta: "சூட்சும தசா", en: "Sookshma Dasha" },
+  planet: { ta: "கிரகம்", en: "Planet" },
+  startDate: { ta: "தொடக்கம்", en: "Start" },
+  endDate: { ta: "முடிவு", en: "End" },
+  duration: { ta: "காலஅளவு", en: "Duration" },
+  months: { ta: "மாதங்கள்", en: "months" },
+  years: { ta: "ஆண்டுகள்", en: "yrs" },
+  current: { ta: "தற்போது", en: "Now" },
+  balanceAtBirth: { ta: "பிறப்பில் தசா மிச்சம்", en: "Dasha balance at birth" },
+  // Lagna (Panchangam)
+  lagnaNow: { ta: "தற்போதைய லக்னம்", en: "Current Lagna" },
+  lagnaAtSunrise: { ta: "உதய லக்னம்", en: "Sunrise Lagna" },
+  lagnaNote: {
+    ta: "லக்னம் ~2 மணி நேரத்திற்கு ஒருமுறை மாறும். தேர்ந்தெடுத்த நேரத்திற்கானது.",
+    en: "Lagna changes about every 2 hours — shown for the selected time.",
+  },
+  time: { ta: "நேரம்", en: "Time" },
+  // Tabs
+  tabChart: { ta: "ஜாதகம்", en: "Chart" },
+  tabIncidents: { ta: "நிகழ்வுகள்", en: "Incidents" },
+  // Incidents
+  incidentsTitle: { ta: "வாழ்க்கை நிகழ்வுகள்", en: "Life Incidents" },
+  incidentsSubtitle: {
+    ta: "இந்த ஜாதகத்திற்கான நல்ல/கெட்ட நிகழ்வுகளைப் பதிவு செய்யவும்.",
+    en: "Record good or bad life events for this chart.",
+  },
+  incidentName: { ta: "நிகழ்வின் பெயர்", en: "Incident name" },
+  incidentKind: { ta: "வகை", en: "Type" },
+  good: { ta: "நல்லது", en: "Good" },
+  bad: { ta: "கெட்டது", en: "Bad" },
+  singleDay: { ta: "ஒரே நாள் நிகழ்வு", en: "Single-day event" },
+  addIncident: { ta: "நிகழ்வைச் சேர்", en: "Add incident" },
+  noIncidents: { ta: "இதுவரை நிகழ்வுகள் எதுவும் பதிவாகவில்லை.", en: "No incidents recorded yet." },
+  incidentsNeedChart: {
+    ta: "நிகழ்வுகளைப் பதிவு செய்ய முதலில் ஒரு ஜாதகத்தை உருவாக்கவும் அல்லது திறக்கவும்.",
+    en: "Generate or open a chart first to record incidents against it.",
+  },
+  note: { ta: "குறிப்பு (விருப்பம்)", en: "Note (optional)" },
+  days: { ta: "நாட்கள்", en: "days" },
+  oneDay: { ta: "1 நாள்", en: "1 day" },
+  forChart: { ta: "ஜாதகம்", en: "For" },
   disclaimer: {
     ta: "இது Lahiri அயனாம்சத்தை அடிப்படையாகக் கொண்ட நிரயன (சைடீரியல்) கணக்கீடு.",
     en: "Sidereal (Nirayana) calculations based on Lahiri ayanamsa.",
