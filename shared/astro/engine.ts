@@ -16,6 +16,10 @@ import { analyzeLagna, type LagnaAnalysis } from "./lagna-analysis";
 import { computeShadbala, type ShadbalaResult, type ShadbalaContext } from "./shadbala";
 import { computeDasha, type DashaTimeline } from "./dasha";
 import { computeAshtakavarga, type AshtakavargaResult, type AvContributor } from "./ashtakavarga";
+import {
+  computeCharaKarakas, computeCharaDasha, computeBhriguBindu,
+  computeSpecialLagnas, computeArudhaLagna, type KNRaoResult,
+} from "./knrao";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -167,6 +171,7 @@ export interface ChartResult {
   lagnaAnalysis: LagnaAnalysis;
   lagnaLordShadbala: ShadbalaResult | null;
   ashtakavarga: AshtakavargaResult;
+  knRao: KNRaoResult;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -226,12 +231,18 @@ export function computeChart(input: {
   // Shadbala context: day/night, weekday, ayana (Sun's tropical course).
   const observer = new Astronomy.Observer(input.latitude, input.longitude, 0);
   let isDayBirth = true;
+  let hoursSinceSunrise = 0;
   try {
     const dayStart = new Astronomy.AstroTime(new Date(time.date.getTime() - 18 * 3600 * 1000));
     const sr = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, +1, dayStart, 2);
     const ss = Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, -1, sr ?? dayStart, 2);
     if (sr && ss) {
       isDayBirth = time.date.getTime() >= sr.date.getTime() && time.date.getTime() < ss.date.getTime();
+    }
+    if (sr) {
+      hoursSinceSunrise = (time.date.getTime() - sr.date.getTime()) / 3600000;
+      // If born before sunrise, reference the previous day's sunrise (24h earlier).
+      if (hoursSinceSunrise < 0) hoursSinceSunrise += 24;
     }
   } catch { /* keep default */ }
   // Weekday of the civil birth date (0=Sunday..6=Saturday).
@@ -257,6 +268,24 @@ export function computeChart(input: {
   };
   const ashtakavarga = computeAshtakavarga(signByContributor);
 
+  // ---- KN Rao concepts ------------------------------------------------------
+  const planetSigns = planets.map((p) => p.rasiIndex);
+  const charaKarakas = computeCharaKarakas(planets.slice(0, 7).map((p) => p.siderealLon));
+  const arudhaLagnaSign = computeArudhaLagna(lagnaRasi, planetSigns);
+  const charaDasha = computeCharaDasha(lagnaRasi, planetSigns, by);
+  const charaDashaDirection: "direct" | "reverse" =
+    [0, 2, 4, 6, 8, 10].includes(lagnaRasi) ? "direct" : "reverse";
+  const bhriguBindu = computeBhriguBindu(planets[1].siderealLon, planets[7].siderealLon, lagnaRasi);
+  const atmakaraka = charaKarakas[0];
+  const akNavamsaSign = navamsaSign(planets[atmakaraka.planetIndex].siderealLon);
+  const specialLagnas = computeSpecialLagnas(
+    lagnaSid, lagnaRasi, hoursSinceSunrise, arudhaLagnaSign,
+    atmakaraka.planetIndex, akNavamsaSign,
+  );
+  const knRao: KNRaoResult = {
+    charaKarakas, charaDasha, charaDashaDirection, bhriguBindu, specialLagnas,
+  };
+
   return {
     meta: {
       date: input.date, time: input.time,
@@ -276,6 +305,7 @@ export function computeChart(input: {
     lagnaAnalysis,
     lagnaLordShadbala,
     ashtakavarga,
+    knRao,
   };
 }
 

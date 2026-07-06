@@ -22,7 +22,17 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard, Grid3x3 } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock, Filter, X, CalendarRange, LayoutDashboard, Grid3x3, Pencil, Check, User } from "lucide-react";
+
+// Format "HH:MM" (24h) as "h:MM AM/PM" for display.
+function formatTime12(time: string): string {
+  const m = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!m) return time;
+  let h = Number(m[1]);
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m[2]} ${ap}`;
+}
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -43,7 +53,7 @@ const CHENNAI_DEFAULT: GeoResult = {
 };
 
 export default function Jathagam() {
-  const { lang, t } = useLang();
+  const { lang, t, chartStyle: preferredStyle } = useLang();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -54,8 +64,17 @@ export default function Jathagam() {
   const [reopenedChart, setReopenedChart] = useState<ChartResult | null>(null);
   // Saved-chart id of the currently displayed chart (for attaching incidents).
   const [activeChartId, setActiveChartId] = useState<number | null>(null);
+  // When a saved chart is opened, the form is locked. Only after clicking the
+  // edit pen do date & time become editable.
+  const [openedFromSaved, setOpenedFromSaved] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  // Snapshot of date/time when entering edit mode, so Cancel can restore.
+  const [editSnapshot, setEditSnapshot] = useState<{ date: string; time: string } | null>(null);
+  // The exact tz offset of the currently opened saved chart (avoids re-derivation).
+  const [activeTz, setActiveTz] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "incidents">("chart");
-  const [chartStyle, setChartStyle] = useState<"south" | "north">("south");
+  // Seed from the startup-chosen preference; still toggleable inline per-chart.
+  const [chartStyle, setChartStyle] = useState<"south" | "north">(preferredStyle);
   const [chartScript, setChartScript] = useState<ChartScript>("en");
 
   // Saved charts history
@@ -92,6 +111,10 @@ export default function Jathagam() {
       setReopenedChart(null);
       setActiveChartId(null);
       setActiveTab("chart");
+      setOpenedFromSaved(false);
+      setEditMode(false);
+      setEditSnapshot(null);
+      setActiveTz(null);
       if (!place) throw new Error("Select a place");
       const tz = tzOffsetHours(place.timezone, date);
       const res = await apiRequest("POST", "/api/chart", {
@@ -130,14 +153,18 @@ export default function Jathagam() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/charts"] }),
   });
 
-  // Re-open a saved chart: repopulate the form and regenerate.
+  // Re-open a saved chart: repopulate the form (LOCKED) and regenerate.
   function openSaved(c: Chart) {
     setActiveChartId(c.id);
     setActiveTab("chart");
+    setOpenedFromSaved(true);
+    setEditMode(false);
+    setEditSnapshot(null);
     setName(c.name);
     setDate(c.date);
     setTime(c.time);
     const tz = parseFloat(c.tzOffset);
+    setActiveTz(tz);
     const geo: GeoResult = {
       name: c.placeName, admin1: "", country: "",
       latitude: parseFloat(c.latitude), longitude: parseFloat(c.longitude),
@@ -156,6 +183,73 @@ export default function Jathagam() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Reset to a blank fresh-entry form (unlocks it, clears the opened chart).
+  function resetForm() {
+    setOpenedFromSaved(false);
+    setEditMode(false);
+    setEditSnapshot(null);
+    setActiveChartId(null);
+    setReopenedChart(null);
+    setActiveTz(null);
+    mut.reset();
+    setName("");
+    setDate("");
+    setTime("");
+    setPlace(CHENNAI_DEFAULT);
+    setPlaceLabel(`${CHENNAI_DEFAULT.name}, ${CHENNAI_DEFAULT.admin1}, ${CHENNAI_DEFAULT.country}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Enter edit mode on an opened saved chart (only date & time editable).
+  function startEdit() {
+    setEditSnapshot({ date, time });
+    setEditMode(true);
+  }
+
+  // Cancel edits: restore the snapshot and leave edit mode.
+  function cancelEdit() {
+    if (editSnapshot) {
+      setDate(editSnapshot.date);
+      setTime(editSnapshot.time);
+    }
+    setEditSnapshot(null);
+    setEditMode(false);
+  }
+
+  // Save edits: recompute the chart with the new date/time (same place),
+  // update the saved record, then re-lock the form.
+  async function saveEdit() {
+    if (!place || !date || !time) return;
+    // Reuse the opened chart's exact tz offset; fall back to place-derived tz.
+    const tz = activeTz != null ? activeTz : tzOffsetHours(place.timezone, date);
+    const res = await apiRequest("POST", "/api/chart", {
+      name, date, time,
+      latitude: place.latitude, longitude: place.longitude, tzOffset: tz,
+    });
+    const result: ChartResult = await res.json();
+    setReopenedChart(result);
+    // Persist the new date/time back to the saved record.
+    if (activeChartId != null) {
+      try {
+        const moon = result.planets[1];
+        await apiRequest("PATCH", `/api/charts/${activeChartId}`, {
+          date, time,
+          lagnaIndex: result.lagna.rasiIndex,
+          rasiIndex: moon.rasiIndex,
+          nakshatraIndex: moon.nakshatraIndex,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/charts"] });
+      } catch { /* best-effort persistence */ }
+    }
+    setEditSnapshot(null);
+    setEditMode(false);
+  }
+
+  const savedEditMut = useMutation<void, Error, void>({ mutationFn: saveEdit });
+
+  // The saved-chart form is locked whenever a saved chart is open and we're not editing.
+  const formLocked = openedFromSaved && !editMode;
+
   const canSubmit = date && time && place;
   const chart = mut.data ?? reopenedChart;
 
@@ -171,34 +265,115 @@ export default function Jathagam() {
 
       {/* Input form */}
       <Card className="p-5 md:p-6 mb-8">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <Label htmlFor="name" className="mb-1.5 block">{t(UI.name)}</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />
+        {formLocked ? (
+          /* -------- Locked read-only view of an opened saved chart -------- */
+          <div data-testid="locked-form">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-serif text-lg leading-tight truncate" data-testid="locked-name">
+                  {name.trim() || t(UI.unnamed)}
+                </div>
+                <div className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5" data-testid="locked-datetime">
+                    <Clock className="h-3.5 w-3.5 text-primary" /> {date} · {formatTime12(time)}
+                  </div>
+                  <div className="flex items-center gap-1.5" data-testid="locked-place">
+                    <MapPin className="h-3.5 w-3.5 text-primary" /> <span className="truncate">{placeLabel}</span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 shrink-0"
+                onClick={startEdit}
+                data-testid="button-edit"
+                aria-label={t(UI.editDetails)}
+              >
+                <Pencil className="h-3.5 w-3.5" /> {t(UI.editDetails)}
+              </Button>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={resetForm} data-testid="button-new-chart" className="gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> {t(UI.generate)}
+              </Button>
+            </div>
           </div>
-          <div>
-            <Label className="mb-1.5 block">{t(UI.dob)}</Label>
-            <DateSelect date={date} setDate={setDate} />
+        ) : editMode ? (
+          /* -------- Edit mode: only date & time editable -------- */
+          <div data-testid="edit-form">
+            <div className="mb-3 text-xs text-muted-foreground flex items-center gap-1.5">
+              <Pencil className="h-3.5 w-3.5 text-primary" /> {t(UI.editHint)}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label className="mb-1.5 block">{t(UI.name)}</Label>
+                <div className="flex items-center gap-1.5 rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" data-testid="edit-name-readonly">
+                  <User className="h-3.5 w-3.5" /> {name.trim() || t(UI.unnamed)}
+                </div>
+              </div>
+              <div>
+                <Label className="mb-1.5 block">{t(UI.dob)}</Label>
+                <DateSelect date={date} setDate={setDate} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block">{t(UI.tob)}</Label>
+                <TimeSelect time={time} setTime={setTime} />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="mb-1.5 block">{t(UI.pob)}</Label>
+                <div className="flex items-center gap-1.5 rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground" data-testid="edit-place-readonly">
+                  <MapPin className="h-3.5 w-3.5" /> {placeLabel}
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center gap-2">
+              <Button
+                onClick={() => savedEditMut.mutate()}
+                disabled={!canSubmit || savedEditMut.isPending}
+                data-testid="button-save-edit"
+                className="gap-1.5"
+              >
+                <Check className="h-4 w-4" /> {savedEditMut.isPending ? t(UI.loading) : t(UI.saveChanges)}
+              </Button>
+              <Button variant="ghost" onClick={cancelEdit} disabled={savedEditMut.isPending} data-testid="button-cancel-edit">
+                {t(UI.cancelEdit)}
+              </Button>
+            </div>
           </div>
-          <div>
-            <Label className="mb-1.5 block">{t(UI.tob)}</Label>
-            <TimeSelect time={time} setTime={setTime} />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="mb-1.5 block">{t(UI.pob)}</Label>
-            <PlaceSearch value={placeLabel} onSelect={(p) => { setPlace(p); setPlaceLabel(p.name); }} />
-          </div>
-        </div>
-        <div className="mt-5 flex items-center gap-3">
-          <Button
-            onClick={() => mut.mutate()}
-            disabled={!canSubmit || mut.isPending}
-            data-testid="button-generate"
-          >
-            {mut.isPending ? t(UI.loading) : t(UI.generate)}
-          </Button>
-          {mut.isError && <span className="text-sm text-destructive">{mut.error.message}</span>}
-        </div>
+        ) : (
+          /* -------- Normal fresh entry (fully editable) -------- */
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="name" className="mb-1.5 block">{t(UI.name)}</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />
+              </div>
+              <div>
+                <Label className="mb-1.5 block">{t(UI.dob)}</Label>
+                <DateSelect date={date} setDate={setDate} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block">{t(UI.tob)}</Label>
+                <TimeSelect time={time} setTime={setTime} />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="mb-1.5 block">{t(UI.pob)}</Label>
+                <PlaceSearch value={placeLabel} onSelect={(p) => { setPlace(p); setPlaceLabel(p.name); }} />
+              </div>
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <Button
+                onClick={() => mut.mutate()}
+                disabled={!canSubmit || mut.isPending}
+                data-testid="button-generate"
+              >
+                {mut.isPending ? t(UI.loading) : t(UI.generate)}
+              </Button>
+              {mut.isError && <span className="text-sm text-destructive">{mut.error.message}</span>}
+            </div>
+          </>
+        )}
       </Card>
 
       {mut.isPending && (

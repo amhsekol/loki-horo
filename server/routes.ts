@@ -50,6 +50,15 @@ export async function registerRoutes(
     res.json(await storage.createChart(parsed.data));
   });
 
+  app.patch("/api/charts/:id", async (req, res) => {
+    const id = z.coerce.number().parse(req.params.id);
+    const parsed = insertChartSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    res.json(await storage.updateChart(id, parsed.data));
+  });
+
   app.delete("/api/charts/:id", async (req, res) => {
     const id = z.coerce.number().parse(req.params.id);
     res.json(await storage.deleteChart(id));

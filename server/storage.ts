@@ -50,6 +50,7 @@ export const db = drizzle(sqlite);
 export interface IStorage {
   listCharts(): Promise<Chart[]>;
   createChart(chart: InsertChart): Promise<Chart>;
+  updateChart(id: number, patch: Partial<InsertChart>): Promise<Chart | undefined>;
   deleteChart(id: number): Promise<{ changes: number }>;
   listIncidents(chartId: number): Promise<Incident[]>;
   createIncident(incident: InsertIncident): Promise<Incident>;
@@ -67,6 +68,11 @@ export class DatabaseStorage implements IStorage {
       .values({ ...insert, createdAt: Date.now() })
       .returning()
       .get();
+  }
+
+  async updateChart(id: number, patch: Partial<InsertChart>): Promise<Chart | undefined> {
+    db.update(charts).set(patch).where(eq(charts.id, id)).run();
+    return db.select().from(charts).where(eq(charts.id, id)).get();
   }
 
   async deleteChart(id: number): Promise<{ changes: number }> {
