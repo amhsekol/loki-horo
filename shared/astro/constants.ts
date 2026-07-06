@@ -236,6 +236,11 @@ export const UI: Record<string, Bilingual> = {
   searchPlace: { ta: "நகரத்தைத் தேடு", en: "Search a city" },
   save: { ta: "சேமி", en: "Save" },
   saved: { ta: "சேமித்த ஜாதகங்கள்", en: "Saved Charts" },
+  savedAuto: { ta: "சேமிக்கப்பட்டது", en: "Saved" },
+  noCharts: { ta: "இதுவரை ஜாதகம் எதுவும் சேமிக்கப்படவில்லை.", en: "No saved charts yet." },
+  loadChart: { ta: "திற", en: "Open" },
+  deleteChart: { ta: "நீக்கு", en: "Delete" },
+  unnamed: { ta: "பெயரிடப்படாதது", en: "Unnamed" },
   disclaimer: {
     ta: "இது Lahiri அயனாம்சத்தை அடிப்படையாகக் கொண்ட நிரயன (சைடீரியல்) கணக்கீடு.",
     en: "Sidereal (Nirayana) calculations based on Lahiri ayanamsa.",

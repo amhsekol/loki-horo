@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
-import { UI, GRAHAS, RASIS, NAKSHATRAS } from "@shared/astro/constants";
+import { UI, GRAHAS, GRAHA_SHORT, RASIS, NAKSHATRAS } from "@shared/astro/constants";
 import type { PanchangamResult } from "@shared/astro/engine";
 import { Layout } from "@/components/Layout";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RasiGrid } from "@/components/RasiGrid";
 import { CalendarDays, Sunrise, Sunset, Clock, Moon, Star, Sparkles, CircleDot, Orbit } from "lucide-react";
 
 function fmtDeg(d: number) {
@@ -167,6 +168,20 @@ export default function Panchangam() {
                   </table>
                 </div>
               </Card>
+
+              {/* Rasi chart of today's planets (South Indian) */}
+              <div className="mt-6">
+                <RasiGrid
+                  title={lang === "ta" ? "கோசர் கட்டம்" : "Sky Chart"}
+                  occupants={p.planets.reduce((acc, pl) => {
+                    (acc[pl.rasiIndex] ??= []).push({
+                      label: GRAHA_SHORT[pl.index][lang],
+                      retro: pl.retrograde,
+                    });
+                    return acc;
+                  }, {} as Record<number, { label: string; retro?: boolean; isLagna?: boolean }[]>)}
+                />
+              </div>
             </div>
           )}
 

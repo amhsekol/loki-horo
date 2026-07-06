@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
 import { UI, RASIS, NAKSHATRAS, GRAHAS } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
+import type { Chart } from "@shared/schema";
 import { Layout } from "@/components/Layout";
 import { RasiGrid, buildOccupants } from "@/components/RasiGrid";
 import { PlaceSearch, tzOffsetHours, type GeoResult } from "@/components/PlaceSearch";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Moon, Star, Sunrise } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, History, Trash2, MapPin, Clock } from "lucide-react";
 
 function fmtDeg(d: number) {
   const deg = Math.floor(d);
@@ -29,9 +30,14 @@ export default function Jathagam() {
   const [time, setTime] = useState("");
   const [place, setPlace] = useState<GeoResult | null>(null);
   const [placeLabel, setPlaceLabel] = useState("");
+  const [reopenedChart, setReopenedChart] = useState<ChartResult | null>(null);
+
+  // Saved charts history
+  const savedQuery = useQuery<Chart[]>({ queryKey: ["/api/charts"] });
 
   const mut = useMutation<ChartResult, Error, void>({
     mutationFn: async () => {
+      setReopenedChart(null);
       if (!place) throw new Error("Select a place");
       const tz = tzOffsetHours(place.timezone, date);
       const res = await apiRequest("POST", "/api/chart", {
@@ -40,12 +46,56 @@ export default function Jathagam() {
         longitude: place.longitude,
         tzOffset: tz,
       });
-      return res.json();
+      const result = await res.json();
+      // Auto-save every generated jathagam to history.
+      try {
+        await apiRequest("POST", "/api/charts", {
+          name: name.trim() || "",
+          date, time,
+          placeName: place.name,
+          latitude: String(place.latitude),
+          longitude: String(place.longitude),
+          tzOffset: String(tz),
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/charts"] });
+      } catch { /* saving is best-effort; don't block the chart */ }
+      return result;
     },
   });
 
+  const delMut = useMutation<unknown, Error, number>({
+    mutationFn: async (id) => {
+      await apiRequest("DELETE", `/api/charts/${id}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/charts"] }),
+  });
+
+  // Re-open a saved chart: repopulate the form and regenerate.
+  function openSaved(c: Chart) {
+    setName(c.name);
+    setDate(c.date);
+    setTime(c.time);
+    const tz = parseFloat(c.tzOffset);
+    const geo: GeoResult = {
+      name: c.placeName, admin1: "", country: "",
+      latitude: parseFloat(c.latitude), longitude: parseFloat(c.longitude),
+      timezone: `UTC${tz >= 0 ? "+" : ""}${tz}`,
+    };
+    setPlace(geo);
+    setPlaceLabel(c.placeName);
+    // Compute directly from the saved coordinates (avoid tz re-derivation).
+    mut.reset();
+    apiRequest("POST", "/api/chart", {
+      name: c.name, date: c.date, time: c.time,
+      latitude: parseFloat(c.latitude), longitude: parseFloat(c.longitude), tzOffset: tz,
+    })
+      .then((r) => r.json())
+      .then((data) => { setReopenedChart(data); });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const canSubmit = date && time && place;
-  const chart = mut.data;
+  const chart = mut.data ?? reopenedChart;
 
   return (
     <Layout>
@@ -185,6 +235,52 @@ export default function Jathagam() {
           </p>
         </div>
       )}
+
+      {/* Saved charts history */}
+      <div className="mt-12">
+        <h2 className="font-serif text-lg mb-3 flex items-center gap-2">
+          <History className="h-4 w-4 text-primary" />
+          {t(UI.saved)}
+          {savedQuery.data && savedQuery.data.length > 0 && (
+            <span className="text-xs text-muted-foreground font-sans">({savedQuery.data.length})</span>
+          )}
+        </h2>
+        {savedQuery.isLoading && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-md" />)}
+          </div>
+        )}
+        {savedQuery.data && savedQuery.data.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t(UI.noCharts)}</p>
+        )}
+        {savedQuery.data && savedQuery.data.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {savedQuery.data.map((c) => (
+              <Card key={c.id} className="p-4 flex flex-col gap-2" data-testid={`card-saved-${c.id}`}>
+                <div className="font-medium text-base leading-tight truncate">
+                  {c.name?.trim() || t(UI.unnamed)}
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" /> {c.date} · {c.time}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3 w-3" /> <span className="truncate">{c.placeName}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openSaved(c)} data-testid={`button-open-${c.id}`}>
+                    {t(UI.loadChart)}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending} data-testid={`button-delete-${c.id}`} aria-label={t(UI.deleteChart)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }
