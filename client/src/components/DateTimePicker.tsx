@@ -127,13 +127,14 @@ interface DateFields { date: string; setDate: (v: string) => void; }
 export function DateSelect({ date, setDate }: DateFields) {
   const { lang, t } = useLang();
   const { y, mo, d } = parseDate(date);
-  const nowYear = new Date().getFullYear();
 
-  // Years ascending starting at 1990 (so the wheel "starts from 1990"),
-  // then later years, then earlier years below for full range access.
+  // The wheel "starts from 1990" (that value sits at the top / is the default),
+  // then extends 100 years forward (1990–2090) and 100 years backward
+  // (1989–1890) so the full ±100-year range is reachable by scrolling.
+  const BASE_YEAR = 1990;
   const years: WheelOption[] = [];
-  for (let yr = 1990; yr <= nowYear; yr++) years.push({ value: String(yr), label: String(yr) });
-  for (let yr = 1989; yr >= 1900; yr--) years.push({ value: String(yr), label: String(yr) });
+  for (let yr = BASE_YEAR; yr <= BASE_YEAR + 100; yr++) years.push({ value: String(yr), label: String(yr) });
+  for (let yr = BASE_YEAR - 1; yr >= BASE_YEAR - 100; yr--) years.push({ value: String(yr), label: String(yr) });
 
   const months: WheelOption[] = GREGORIAN_MONTHS.map((m, i) => ({ value: pad2(i + 1), label: tl(m, lang) }));
 
