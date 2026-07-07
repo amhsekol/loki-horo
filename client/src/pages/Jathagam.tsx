@@ -22,12 +22,13 @@ import { GurujiTab } from "@/components/GurujiTab";
 import { RiseFallTab } from "@/components/RiseFallTab";
 import { PersonaTab } from "@/components/PersonaTab";
 import { DashaTransitTab } from "@/components/DashaTransitTab";
+import { RulesTab } from "@/components/RulesTab";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Moon, Star, Sunrise, MapPin, Clock, CalendarRange, CalendarClock, LayoutDashboard, Grid3x3, Pencil, Check, User, BookOpen, Sun, TrendingUp } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, MapPin, Clock, CalendarRange, CalendarClock, LayoutDashboard, Grid3x3, Pencil, Check, User, BookOpen, Sun, TrendingUp, Library } from "lucide-react";
 
 // Format "HH:MM" (24h) as "h:MM AM/PM" for display.
 function formatTime12(time: string): string {
@@ -78,7 +79,7 @@ export default function Jathagam() {
   const [editSnapshot, setEditSnapshot] = useState<{ date: string; time: string } | null>(null);
   // The exact tz offset of the currently opened saved chart (avoids re-derivation).
   const [activeTz, setActiveTz] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "knrao" | "guruji" | "risefall" | "dashatransit" | "persona" | "incidents">("chart");
+  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "knrao" | "guruji" | "rules" | "risefall" | "dashatransit" | "persona" | "incidents">("chart");
   // Seed from the startup-chosen preference; still toggleable inline per-chart.
   const [chartStyle, setChartStyle] = useState<"south" | "north">(preferredStyle);
   const [chartScript, setChartScript] = useState<ChartScript>("en");
@@ -466,6 +467,18 @@ export default function Jathagam() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab("rules")}
+              data-testid="tab-rules"
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "rules"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Library className="h-4 w-4" /> {t(UI.rulesTab)}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("incidents")}
               data-testid="tab-incidents"
               className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
@@ -494,6 +507,8 @@ export default function Jathagam() {
             <DashaTransitTab chart={chart} chartId={activeChartId} />
           ) : activeTab === "persona" ? (
             <PersonaTab chart={chart} />
+          ) : activeTab === "rules" ? (
+            <RulesTab />
           ) : (
           <div className="space-y-8">
           {/* Summary badges */}

@@ -92,6 +92,34 @@ export async function registerRoutes(
     }
   });
 
+  // Astrology rules library (reference data — public, no auth). Optional
+  // filters: ?astrologer=, ?category=, ?planet=<0-8>, ?house=<1-12>, ?q=<text>.
+  app.get("/api/rules", async (req, res) => {
+    try {
+      let list = await storage.listRules();
+      const { astrologer, category, planet, house, q } = req.query as Record<string, string>;
+      if (astrologer) list = list.filter((r) => r.astrologer === astrologer);
+      if (category) list = list.filter((r) => r.categoryKey === category);
+      if (planet !== undefined && planet !== "") {
+        const p = Number(planet);
+        if (Number.isFinite(p)) list = list.filter((r) => r.planets.includes(p));
+      }
+      if (house !== undefined && house !== "") {
+        const h = Number(house);
+        if (Number.isFinite(h)) list = list.filter((r) => r.houses.includes(h));
+      }
+      if (q && q.trim()) {
+        const needle = q.trim().toLowerCase();
+        list = list.filter((r) =>
+          [r.titleEn, r.titleTa, r.titleHi, r.bodyEn, r.bodyTa, r.bodyHi]
+            .some((f) => (f || "").toLowerCase().includes(needle)));
+      }
+      res.json(list);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? "Failed to load rules" });
+    }
+  });
+
   // ==========================================================================
   // Saved charts (owner-scoped). Admin sees all; users see own + shared.
   // ==========================================================================

@@ -161,6 +161,40 @@ export const insertPeriodOutcomeSchema = createInsertSchema(periodOutcomes)
 export type InsertPeriodOutcome = z.infer<typeof insertPeriodOutcomeSchema>;
 export type PeriodOutcome = typeof periodOutcomes.$inferSelect;
 
+// ---------------------------------------------------------------------------
+// Astrology rules library. Reference principles from named astrologer systems
+// (currently Aditya Guruji's Tamil framework). Auto-seeded on startup from a
+// bundled dataset, then queryable/filterable in the Rules Database tab and
+// auto-matched against a chart in the Aditya Guruji tab.
+// `planets`/`houses` are JSON-encoded int arrays (SQLite has no array type).
+// ---------------------------------------------------------------------------
+export const rules = sqliteTable("rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ruleNo: integer("rule_no").notNull(),          // original number within the astrologer's book
+  astrologer: text("astrologer").notNull(),      // "aditya_guruji" (extensible)
+  categoryKey: text("category_key").notNull(),   // "pathaka" | "longevity" | ...
+  categoryEn: text("category_en").notNull(),
+  categoryTa: text("category_ta").notNull(),
+  titleEn: text("title_en").notNull(),
+  titleTa: text("title_ta").notNull(),
+  titleHi: text("title_hi").notNull(),
+  bodyEn: text("body_en").notNull(),
+  bodyTa: text("body_ta").notNull(),
+  bodyHi: text("body_hi").notNull(),
+  planets: text("planets").notNull().default("[]"), // JSON int[] (0=Sun..8=Ketu)
+  houses: text("houses").notNull().default("[]"),   // JSON int[] (1..12)
+}, (t) => ({
+  uniq: uniqueIndex("rules_astrologer_no_idx").on(t.astrologer, t.ruleNo),
+}));
+
+export type RuleRow = typeof rules.$inferSelect;
+
+// Client-facing rule with parsed tag arrays.
+export type Rule = Omit<RuleRow, "planets" | "houses"> & {
+  planets: number[];
+  houses: number[];
+};
+
 // Request schema for chart computation
 export const computeChartSchema = z.object({
   name: z.string().default(""),

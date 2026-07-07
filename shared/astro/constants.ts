@@ -732,4 +732,42 @@ export const UI: Record<string, Bilingual> = {
   dtRecorded: { ta: "பதிவு செய்யப்பட்டது", en: "Recorded", hi: "दर्ज किया गया" },
   dtRecordThis: { ta: "நடந்ததைப் பதிவு செய்", en: "Record what happened", hi: "जो हुआ उसे दर्ज करें" },
   dtNeedSaveChart: { ta: "பலன்களைப் பதிவு செய்ய முதலில் ஜாதகத்தைச் சேமிக்கவும்.", en: "Save the chart first to record outcomes.", hi: "परिणाम दर्ज करने के लिए पहले कुंडली सहेजें।" },
+
+  // ── Rules Database tab ───────────────────────────────────
+  rulesTab: { ta: "விதிகள்", en: "Rules", hi: "नियम" },
+  rulesTitle: { ta: "ஜோதிட விதிகள் தரவுத்தளம்", en: "Astrology Rules Database", hi: "ज्योतिष नियम डेटाबेस" },
+  rulesSubtitle: {
+    ta: "ஆதித்யா குருஜியின் அடிப்படை கோட்பாடுகள் — செய்திரம், வகை, கிரகம்/பாவம் மற்றும் தேடலால் வடிகட்டவும்.",
+    en: "Aditya Guruji's foundational principles — filter by astrologer, category, planet/house, or free-text search.",
+    hi: "आदित्य गुरुजी के मूल सिद्धांत — ज्योतिषी, श्रेणी, ग्रह/भाव या मुक्त-पाठ खोज से छानें।",
+  },
+  rulesSearch: { ta: "விதிகளில் தேடு...", en: "Search rules...", hi: "नियम खोजें..." },
+  rulesAstrologer: { ta: "ஜோதிடர்", en: "Astrologer", hi: "ज्योतिषी" },
+  rulesCategory: { ta: "வகை", en: "Category", hi: "श्रेणी" },
+  rulesPlanet: { ta: "கிரகம்", en: "Planet", hi: "ग्रह" },
+  rulesHouse: { ta: "பாவம்", en: "House", hi: "भाव" },
+  rulesAll: { ta: "அனைத்தும்", en: "All", hi: "सभी" },
+  rulesClear: { ta: "அழி", en: "Clear", hi: "साफ़ करें" },
+  rulesCount: { ta: "விதிகள்", en: "rules", hi: "नियम" },
+  rulesNone: { ta: "வடிகட்டலுக்கு பொருந்தும் விதிகள் இல்லை.", en: "No rules match your filters.", hi: "आपके फ़िल्टर से कोई नियम मेल नहीं खाता।" },
+  rulesLoading: { ta: "விதிகள் ஏற்றப்படுகின்றன...", en: "Loading rules...", hi: "नियम लोड हो रहे हैं..." },
+  rulesTagsPlanets: { ta: "கிரகங்கள்", en: "Planets", hi: "ग्रह" },
+  rulesTagsHouses: { ta: "பாவங்கள்", en: "Houses", hi: "भाव" },
+  rulesAstroAdityaGuruji: { ta: "ஆதித்யா குருஜி", en: "Aditya Guruji", hi: "आदित्य गुरुजी" },
+
+  // Rule category labels (categoryKey → Bilingual)
+  ruleCatPathaka: { ta: "பாதகாதிபதி", en: "Pathakadhipathi", hi: "पाधकाधिपति" },
+  ruleCatLongevity: { ta: "ஆயுள்", en: "Longevity (Ayul)", hi: "आयु" },
+  ruleCatPrediction: { ta: "பலன் சொல்லும் முறை", en: "Prediction Method", hi: "फलादेश विधि" },
+  ruleCatDasa: { ta: "தசா-புக்தி", en: "Dasa-Bhukthi", hi: "दशा-भुक्ति" },
+  ruleCatTransit: { ta: "கோசாரம்", en: "Weekly / Transit", hi: "गोचर" },
+  ruleCatSaturn: { ta: "சனி பார்வை", en: "Saturn Aspect", hi: "शनि दृष्टि" },
+  ruleCatMercury: { ta: "புதன் சுபத்துவம்", en: "Mercury Subathuvam", hi: "बुध शुभत्व" },
+  ruleCatTiming: { ta: "புக்தி-அந்தர காலம்", en: "Bhukthi-Antara Timing", hi: "भुक्ति-अंतर समय" },
+
+  // Guruji tab — matched rules section
+  gurujiMatchedTitle: { ta: "இந்த ஜாதகத்திற்கு பொருந்தும் விதிகள்", en: "Rules that apply to this chart", hi: "इस कुंडली पर लागू नियम" },
+  gurujiMatchedSubtitle: { ta: "ஆதித்யா குருஜியின் விதிகளில் இந்த ஜாதகத்தில் செயல்படுபவை.", en: "Guruji's principles that are active in this chart.", hi: "इस कुंडली में सक्रिय गुरुजी के सिद्धांत।" },
+  gurujiRefTitle: { ta: "முழு விதி தொகுப்பு", en: "Full rule reference", hi: "पूर्ण नियम संदर्भ" },
+  gurujiMatchedNone: { ta: "சிறப்பாக பொருந்திய விதிகள் இல்லை.", en: "No specifically matched rules.", hi: "कोई विशेष मिलान नियम नहीं।" },
 };

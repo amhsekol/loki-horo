@@ -500,3 +500,224 @@ function bandOf(net: number): ValuBand {
   if (net >= -20) return "low";
   return "afflicted";
 }
+
+// ===========================================================================
+// Rule auto-matcher
+// ---------------------------------------------------------------------------
+// Detects concrete conditions in a chart (which of Guruji's basic principles
+// are ACTIVE here) and maps them to the reference rules in the library. Pure
+// and side-effect free: the client fetches /api/rules and calls this against
+// the same PlanetPosition[] it already has, so matched rules render at the top
+// of the Aditya Guruji tab as "rules that apply to this chart".
+//
+// A rule is considered matched when a detected condition names its category
+// and (where the rule carries planet/house tags) at least one tag overlaps the
+// condition's planets/houses. Category-only conditions match every tag-less
+// rule in that category plus any whose tags overlap.
+// ===========================================================================
+
+// Minimal shape the matcher needs from a rule (matches the seeded Rule type).
+export interface MatchableRule {
+  ruleNo: number;
+  astrologer: string;
+  categoryKey: string;
+  planets: number[];
+  houses: number[];
+}
+
+export interface RuleMatch {
+  ruleNo: number;
+  reason: Bilingual; // why this rule fired for this chart
+  specific: boolean; // true = matched a planet/house tag in the chart; false = general method
+}
+
+// A detected chart condition: the category it activates, optional planet/house
+// focus used to narrow which tagged rules apply, and the human reason.
+interface Condition {
+  category: string;
+  planets: number[];
+  houses: number[];
+  reason: Bilingual;
+}
+
+export function detectConditions(
+  planets: PlanetPosition[],
+  lagnaSign: number,
+  moonSign: number,
+): Condition[] {
+  const conds: Condition[] = [];
+  const P = (i: number) => planet(planets, i);
+  const sun = P(0), moon = P(1), merc = P(3), sani = P(6);
+  const hOf = (p: PlanetPosition) => houseOf(p.rasiIndex, lagnaSign);
+
+  // ---- Pathakadhipathi (destroyer lord) — always relevant, chart-specific --
+  const element = lagnaSign % 3; // 0 movable, 1 fixed, 2 dual
+  const bhadhakaHouse = element === 0 ? 11 : element === 1 ? 9 : 7;
+  const bhadhakaLordIdx = RASI_LORDS[signAtHouse(bhadhakaHouse, lagnaSign)];
+  conds.push({
+    category: "pathaka",
+    planets: [bhadhakaLordIdx],
+    houses: [bhadhakaHouse],
+    reason: {
+      en: `${element === 0 ? "Movable" : element === 1 ? "Fixed" : "Dual"} lagna → ${bhadhakaHouse}th lord ${nm(bhadhakaLordIdx).en} is the Pathakadhipathi.`,
+      ta: `${element === 0 ? "சர" : element === 1 ? "ஸ்திர" : "உபய"} லக்னம் → ${bhadhakaHouse}-ஆம் அதிபதி ${nm(bhadhakaLordIdx).ta} பாதகாதிபதி.`,
+      hi: `${element === 0 ? "चर" : element === 1 ? "स्थिर" : "द्विस्वभाव"} लग्न → ${bhadhakaHouse}वां स्वामी ${nm(bhadhakaLordIdx).en} पाधकाधिपति है।`,
+    },
+  });
+
+  // ---- Saturn aspect (sani paarvai) --------------------------------------
+  const saniAspectHouses: number[] = [];
+  for (const h of [1, 4, 7, 10]) { // lagna + kendras of interest
+    const sign = signAtHouse(h, lagnaSign);
+    if (aspectFromTo(6, sani.rasiIndex, sign) > 0) saniAspectHouses.push(h);
+  }
+  const saniAspectsLagna = saniAspectHouses.includes(1);
+  conds.push({
+    category: "saturn",
+    planets: [6],
+    houses: saniAspectHouses.length ? saniAspectHouses : [hOf(sani)],
+    reason: {
+      en: saniAspectsLagna
+        ? `Saturn aspects the Lagna${saniAspectHouses.length > 1 ? " and other kendras" : ""} — Guruji's Saturn-aspect rules apply.`
+        : `Saturn (in the ${ord(hOf(sani))} house) casts its aspects — read the Saturn-aspect principles.`,
+      ta: saniAspectsLagna
+        ? `சனி லக்னத்தை பார்க்கிறது — சனி பார்வை விதிகள் பொருந்துகின்றன.`
+        : `சனி (${hOf(sani)}-ஆம் பாவம்) தன் பார்வையை செலுத்துகிறது.`,
+      hi: saniAspectsLagna
+        ? `शनि लग्न को देखता है — शनि दृष्टि नियम लागू होते हैं।`
+        : `शनि (${hOf(sani)}वाँ भाव) अपनी दृष्टि डालता है।`,
+    },
+  });
+
+  // ---- Mercury Subathuvam (budha) ----------------------------------------
+  const mercConj = conjunctWith(planets, merc).map((q) => q.index);
+  const mercPts = merc.dignity?.points ?? 20;
+  const mercCombust = gap(merc.siderealLon, sun.siderealLon) <= (ASTAMANA_ORB[3] ?? 14);
+  const mercWithBenefic = mercConj.some((i) => i === 4 || i === 5); // Guru/Venus
+  const mercWithMalefic = mercConj.some((i) => NATURAL_MALEFIC.has(i));
+  conds.push({
+    category: "mercury",
+    planets: [3, ...mercConj],
+    houses: [hOf(merc)],
+    reason: {
+      en: mercCombust
+        ? `Mercury is combust (astamana) — its subathuvam is compromised; apply the Mercury rules.`
+        : mercWithBenefic
+        ? `Mercury joins a benefic — its beneficence is enhanced (Mercury Subathuvam rules).`
+        : mercWithMalefic
+        ? `Mercury joins a malefic — it takes on that nature (Mercury Subathuvam rules).`
+        : `Mercury (dignity ${mercPts}) takes the colour of its associations — Mercury Subathuvam rules apply.`,
+      ta: mercCombust
+        ? `புதன் அஸ்தமனம் (எரிப்பு) — புதன் சுபத்துவ விதிகள் பொருந்துகின்றன.`
+        : mercWithBenefic
+        ? `புதன் சுபகிரகத்துடன் சேர்கிறது — சுபத்துவம் கூடுகிறது.`
+        : mercWithMalefic
+        ? `புதன் பாபகிரகத்துடன் சேர்கிறது — அதன் சுபாபத்துவம் மாறுகிறது.`
+        : `புதன் தன் சேர்க்கைக்கேற்ப பலன் — புதன் சுபத்துவ விதிகள்.`,
+      hi: mercCombust
+        ? `बुध अस्त (दहन) — बुध शुभत्व नियम लागू।`
+        : mercWithBenefic
+        ? `बुध शुभ ग्रह के साथ — शुभत्व बढ़ता है।`
+        : mercWithMalefic
+        ? `बुध पाप ग्रह के साथ — उसी स्वभाव को ग्रहण करता है।`
+        : `बुध अपने संबंधों का रंग लेता है — बुध शुभत्व नियम।`,
+    },
+  });
+
+  // ---- 6-8-12 dusthana affliction ----------------------------------------
+  const dustPlanets = planets.filter((p) => DUSTHANA.has(hOf(p)));
+  if (dustPlanets.length) {
+    conds.push({
+      category: "prediction",
+      planets: dustPlanets.map((p) => p.index),
+      houses: [6, 8, 12],
+      reason: {
+        en: `${dustPlanets.map((p) => nm(p.index).en).join(", ")} in 6/8/12 — dusthana affliction to weigh in prediction.`,
+        ta: `${dustPlanets.map((p) => nm(p.index).ta).join(", ")} 6/8/12-இல் — துஸ்தான பாதிப்பை பலனில் எடுக்கவும்.`,
+        hi: `${dustPlanets.map((p) => nm(p.index).en).join(", ")} 6/8/12 में — दुःस्थान पीड़ा।`,
+      },
+    });
+  }
+
+  // ---- Chandrashtama / transit context (Moon-based) ----------------------
+  conds.push({
+    category: "transit",
+    planets: [1],
+    houses: [hOf(moon)],
+    reason: {
+      en: `Moon in ${RASIS[moon.rasiIndex].en} sets the janma-rasi — watch Chandrashtama and transit timing rules.`,
+      ta: `சந்திரன் ${RASIS[moon.rasiIndex].ta}-இல் — சந்திராஷ்டம மற்றும் கோசார விதிகள்.`,
+      hi: `चंद्रमा ${RASIS[moon.rasiIndex].en} में — चंद्राष्टम और गोचर नियम देखें।`,
+    },
+  });
+
+  // ---- Longevity (maraka & 8th) ------------------------------------------
+  const eighthLordIdx = RASI_LORDS[signAtHouse(8, lagnaSign)];
+  conds.push({
+    category: "longevity",
+    planets: [eighthLordIdx],
+    houses: [8, 2, 7],
+    reason: {
+      en: `8th lord ${nm(eighthLordIdx).en} and the 2nd/7th maraka houses frame the longevity (ayul) reading.`,
+      ta: `8-ஆம் அதிபதி ${nm(eighthLordIdx).ta} மற்றும் 2/7 மாரக ஸ்தானங்கள் — ஆயுள் கணிப்பு.`,
+      hi: `8वाँ स्वामी ${nm(eighthLordIdx).en} और 2/7 मारक भाव — आयु विचार।`,
+    },
+  });
+
+  // ---- Dasa-Bhukthi & timing (always relevant framing) -------------------
+  conds.push({
+    category: "dasa",
+    planets: [],
+    houses: [],
+    reason: {
+      en: `Predictions are read through Dasa-Bhukthi — the core method for this chart.`,
+      ta: `பலன்கள் தசா-புக்தி வழியாக சொல்லப்படுகின்றன.`,
+      hi: `फल दशा-भुक्ति के माध्यम से — मूल विधि।`,
+    },
+  });
+  conds.push({
+    category: "timing",
+    planets: [],
+    houses: [],
+    reason: {
+      en: `Fine timing needs Bhukthi-Antara plus transit confirmation.`,
+      ta: `சூட்சும காலம் — புக்தி-அந்தரம் மற்றும் கோசார உறுதி.`,
+      hi: `सूक्ष्म समय — भुक्ति-अंतर और गोचर पुष्टि।`,
+    },
+  });
+
+  return conds;
+}
+
+// Match the rule library against a chart's detected conditions.
+// Returns matched rules (ordered by ruleNo) each with the reason it fired.
+export function matchRules(
+  rules: MatchableRule[],
+  planets: PlanetPosition[],
+  lagnaSign: number,
+  moonSign: number,
+): RuleMatch[] {
+  const conds = detectConditions(planets, lagnaSign, moonSign);
+  const matched = new Map<number, { reason: Bilingual; specific: boolean }>();
+  for (const c of conds) {
+    for (const r of rules) {
+      if (r.categoryKey !== c.category) continue;
+      const hasTags = r.planets.length > 0 || r.houses.length > 0;
+      const tagHit =
+        (c.planets.length > 0 && r.planets.some((p) => c.planets.includes(p))) ||
+        (c.houses.length > 0 && r.houses.some((h) => c.houses.includes(h)));
+      // A rule fires if it has no tags (category-level principle) or a tag overlaps.
+      const ok = !hasTags || tagHit;
+      if (!ok) continue;
+      // "specific" = the chart actually activated one of the rule's own tags.
+      const specific = hasTags && tagHit;
+      const prev = matched.get(r.ruleNo);
+      if (!prev || (specific && !prev.specific)) {
+        matched.set(r.ruleNo, { reason: c.reason, specific });
+      }
+    }
+  }
+  return [...matched.entries()]
+    .map(([ruleNo, v]) => ({ ruleNo, reason: v.reason, specific: v.specific }))
+    .sort((a, b) => (a.specific === b.specific ? a.ruleNo - b.ruleNo : a.specific ? -1 : 1));
+}

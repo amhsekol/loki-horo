@@ -1,9 +1,11 @@
-import { charts, incidents, users, chartShares, periodOutcomes } from "@shared/schema";
+import { charts, incidents, users, chartShares, periodOutcomes, rules } from "@shared/schema";
 import type {
   Chart, InsertChart, Incident, InsertIncident,
   User, ChartWithAccess, ShareRecipient,
   PeriodOutcome, InsertPeriodOutcome,
+  Rule, RuleRow,
 } from "@shared/schema";
+import { RULES_SEED } from "@shared/astro/guruji-rules";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, and, inArray } from "drizzle-orm";
@@ -99,6 +101,27 @@ sqlite.exec(`
 `);
 sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS period_outcomes_chart_period_idx ON period_outcomes(chart_id, period_key);`);
 
+// Astrology rules library (reference principles). Auto-seeded on startup.
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_no INTEGER NOT NULL,
+    astrologer TEXT NOT NULL,
+    category_key TEXT NOT NULL,
+    category_en TEXT NOT NULL,
+    category_ta TEXT NOT NULL,
+    title_en TEXT NOT NULL,
+    title_ta TEXT NOT NULL,
+    title_hi TEXT NOT NULL,
+    body_en TEXT NOT NULL,
+    body_ta TEXT NOT NULL,
+    body_hi TEXT NOT NULL,
+    planets TEXT NOT NULL DEFAULT '[]',
+    houses TEXT NOT NULL DEFAULT '[]'
+  );
+`);
+sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS rules_astrologer_no_idx ON rules(astrologer, rule_no);`);
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {
@@ -135,6 +158,18 @@ export interface IStorage {
   listPeriodOutcomes(chartId: number): Promise<PeriodOutcome[]>;
   upsertPeriodOutcome(outcome: InsertPeriodOutcome): Promise<PeriodOutcome>;
   deletePeriodOutcome(chartId: number, periodKey: string): Promise<{ changes: number }>;
+
+  // Rules library
+  listRules(): Promise<Rule[]>;
+}
+
+// Parse the JSON tag columns into number arrays for the client.
+function rowToRule(r: RuleRow): Rule {
+  const parse = (s: string): number[] => {
+    try { const v = JSON.parse(s); return Array.isArray(v) ? v.filter((n) => typeof n === "number") : []; }
+    catch { return []; }
+  };
+  return { ...r, planets: parse(r.planets), houses: parse(r.houses) };
 }
 
 export class DatabaseStorage implements IStorage {
@@ -362,6 +397,59 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(periodOutcomes.chartId, chartId), eq(periodOutcomes.periodKey, periodKey)))
       .run();
   }
+
+  // --- Rules ---------------------------------------------------------------
+  async listRules(): Promise<Rule[]> {
+    return db.select().from(rules)
+      .orderBy(rules.astrologer, rules.ruleNo)
+      .all()
+      .map(rowToRule);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Seed the rules library from the bundled dataset. Idempotent: upserts every
+// rule keyed on (astrologer, rule_no) so content edits ship on redeploy while
+// existing rows are updated in place (never duplicated).
+// ---------------------------------------------------------------------------
+function seedRules(): void {
+  const upsert = sqlite.prepare(`
+    INSERT INTO rules (rule_no, astrologer, category_key, category_en, category_ta,
+                       title_en, title_ta, title_hi, body_en, body_ta, body_hi, planets, houses)
+    VALUES (@ruleNo, @astrologer, @categoryKey, @categoryEn, @categoryTa,
+            @titleEn, @titleTa, @titleHi, @bodyEn, @bodyTa, @bodyHi, @planets, @houses)
+    ON CONFLICT(astrologer, rule_no) DO UPDATE SET
+      category_key=excluded.category_key, category_en=excluded.category_en, category_ta=excluded.category_ta,
+      title_en=excluded.title_en, title_ta=excluded.title_ta, title_hi=excluded.title_hi,
+      body_en=excluded.body_en, body_ta=excluded.body_ta, body_hi=excluded.body_hi,
+      planets=excluded.planets, houses=excluded.houses
+  `);
+  const tx = sqlite.transaction((items: typeof RULES_SEED) => {
+    for (const r of items) {
+      upsert.run({
+        ruleNo: r.ruleNo,
+        astrologer: r.astrologer,
+        categoryKey: r.categoryKey,
+        categoryEn: r.categoryEn,
+        categoryTa: r.categoryTa,
+        titleEn: r.titleEn,
+        titleTa: r.titleTa,
+        titleHi: r.titleHi,
+        bodyEn: r.bodyEn,
+        bodyTa: r.bodyTa,
+        bodyHi: r.bodyHi,
+        planets: JSON.stringify(r.planets ?? []),
+        houses: JSON.stringify(r.houses ?? []),
+      });
+    }
+  });
+  tx(RULES_SEED);
+}
+
+try {
+  seedRules();
+} catch (err) {
+  console.error("[rules] seed failed:", err);
 }
 
 export const storage = new DatabaseStorage();
