@@ -44,7 +44,7 @@ docker compose up -d --build
 git pull && docker compose up -d --build
 ```
 
-Live target: **https://destiny.lokeshmani.com** (Nginx reverse proxy + Let's Encrypt).
+Live target: **https://predict.lokeshmani.com** (Nginx reverse proxy + Let's Encrypt).
 
 ### Configuration (`.env`)
 
