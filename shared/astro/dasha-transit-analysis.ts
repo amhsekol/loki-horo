@@ -24,7 +24,7 @@
 // ----------------------------------------------------------------------------
 
 import type { Bilingual } from "./constants";
-import { GRAHAS, RASIS, RASI_LORDS, aspectFromTo } from "./constants";
+import { GRAHAS, RASIS, RASIS_HI, RASI_LORDS, aspectFromTo } from "./constants";
 import type { PlanetPosition, transitPositions as TransitFn } from "./engine";
 import type { DashaTimeline, DashaNode } from "./dasha";
 import { computeDignity, type DignityResult } from "./dignity";
@@ -409,6 +409,143 @@ function periodHeadline(disp: Disposition, area: Bilingual): Bilingual {
   };
 }
 
+// ---- Lifetime foundation (Lagna, Lagna lord, Sani, 8th lord) ----------------
+// A one-time natal read that frames the whole life, independent of any running
+// dasha. Classical logic: the LAGNA sets the body/self; its LORD carries the
+// overall vitality and direction of the life; SANI (Saturn) governs longevity,
+// discipline and hardship (ayush karaka); and the 8TH-HOUSE LORD rules the
+// span of life, obstacles and hidden turning points. For each we report its
+// subhatvam/papatvam and its strength (from dignity points).
+
+// Turn 0..100 dignity points into a strength word.
+function strengthWord(points: number): Bilingual {
+  if (points >= 85) return { ta: "மிக பலம்", en: "very strong", hi: "अति बलवान" };
+  if (points >= 60) return { ta: "பலம்", en: "strong", hi: "बलवान" };
+  if (points >= 35) return { ta: "நடுத்தர பலம்", en: "moderate", hi: "मध्यम" };
+  if (points >= 15) return { ta: "பலவீனம்", en: "weak", hi: "कमज़ोर" };
+  return { ta: "மிக பலவீனம்", en: "very weak", hi: "अति कमज़ोर" };
+}
+
+export interface FoundationPillar {
+  role: Bilingual;          // e.g. "Lagna lord", "8th lord (longevity)"
+  planetIndex: number | null; // null only for the Lagna sign pillar
+  planet: Bilingual;        // planet name (or the Lagna sign for the sign pillar)
+  ownedHouses: number[];    // houses it owns from Lagna
+  natalHouse: number | null;// natal house from Lagna (null for the sign pillar)
+  disposition: Disposition; // subhatvam / papatvam / mixed
+  strengthPoints: number;   // 0..100
+  note: Bilingual;          // full sentence
+}
+
+export interface LifetimeFoundation {
+  lagnaSign: number;
+  lagnaSignName: Bilingual;
+  headline: Bilingual;
+  pillars: FoundationPillar[]; // Lagna, Lagna lord, Sani, 8th lord
+}
+
+function planetPillar(
+  role: Bilingual,
+  lordIndex: number,
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+): FoundationPillar {
+  const natal = natalPlanets.find((p) => p.index === lordIndex)!;
+  const nm = GRAHAS[lordIndex];
+  const owned = ownedHouses(lordIndex, lagnaSign);
+  const natalHouse = houseFrom(natal.rasiIndex, lagnaSign);
+  const dig = dignityDisposition(natal.dignity);
+  const disp = dig.disp;
+  const pts = dig.points;
+  const str = strengthWord(pts);
+
+  const ownedEn = owned.length ? `lord of the ${owned.map(ordEn).join(" & ")}` : "a shadow node (no rulership)";
+  const ownedTa = owned.length ? `${owned.map(ordTa).join(", ")} அதிபதி` : "சாயா கிரகம் (அதிபத்தியம் இல்லை)";
+  const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
+
+  return {
+    role,
+    planetIndex: lordIndex,
+    planet: nm,
+    ownedHouses: owned,
+    natalHouse,
+    disposition: disp,
+    strengthPoints: pts,
+    note: {
+      ta: `${role.ta}: ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${ordTa(natalHouse)} பாவத்தில்; ${dispWord(disp).ta}, பலம் ${str.ta} (${pts}/100).`,
+      en: `${role.en}: ${nm.en} — ${ownedEn}, natally in the ${ordEn(natalHouse)} house; ${dispWord(disp).en}, strength ${str.en} (${pts}/100).`,
+      hi: `${role.hi ?? role.en}: ${nm.hi ?? nm.en} — ${ownedHi}, जन्म में ${ordHi(natalHouse)} भाव में; ${dispWord(disp).hi}, बल ${str.hi} (${pts}/100)।`,
+    },
+  };
+}
+
+function buildLifetimeFoundation(
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+): LifetimeFoundation {
+  // Lagna lord = ruler of the lagna sign.
+  const lagnaLordIndex = RASI_LORDS[lagnaSign];
+  // 8th sign from Lagna, and its lord (the longevity / ayush lord).
+  const eighthSign = (lagnaSign + 7) % 12;
+  const eighthLordIndex = RASI_LORDS[eighthSign];
+
+  const lagnaName = RASIS[lagnaSign];
+
+  const pillars: FoundationPillar[] = [];
+
+  // (1) The Lagna itself (the sign — the body & self).
+  pillars.push({
+    role: { ta: "லக்னம்", en: "Lagna (Ascendant)", hi: "लग्न" },
+    planetIndex: null,
+    planet: { ta: lagnaName.ta.split(" (")[0], en: lagnaName.en.split(" (")[0], hi: (RASIS_HI[lagnaSign] ?? lagnaName.en.split(" (")[0]) },
+    ownedHouses: [1],
+    natalHouse: 1,
+    disposition: "mixed",
+    strengthPoints: 50,
+    note: {
+      ta: `லக்னம்: ${lagnaName.ta.split(" (")[0]} — உடல், சுயம், வாழ்நாள் மொத்தத்தின் அடித்தளம்; அதிபதி ${GRAHAS[lagnaLordIndex].ta}.`,
+      en: `Lagna: ${lagnaName.en.split(" (")[0]} — the body, the self, the base of the whole life; its lord is ${GRAHAS[lagnaLordIndex].en}.`,
+      hi: `लग्न: ${RASIS_HI[lagnaSign] ?? lagnaName.en.split(" (")[0]} — शरीर, स्वयं व सम्पूर्ण जीवन का आधार; इसका स्वामी ${GRAHAS[lagnaLordIndex].hi ?? GRAHAS[lagnaLordIndex].en}।`,
+    },
+  });
+
+  // (2) The Lagna lord — vitality & direction of the life.
+  pillars.push(planetPillar(
+    { ta: "லக்னாதிபதி (வாழ்வின் இயக்கி)", en: "Lagna lord (life-force)", hi: "लग्नेश (जीवन-शक्ति)" },
+    lagnaLordIndex, natalPlanets, lagnaSign,
+  ));
+
+  // (3) Sani (Saturn) — ayush karaka: longevity, discipline, hardship.
+  pillars.push(planetPillar(
+    { ta: "சனி (ஆயுள்/ஒழுக்கம்)", en: "Sani / Saturn (longevity & discipline)", hi: "शनि (आयु व अनुशासन)" },
+    6, natalPlanets, lagnaSign,
+  ));
+
+  // (4) 8th-house lord — span of life, obstacles, turning points.
+  pillars.push(planetPillar(
+    { ta: "8-ம் அதிபதி (ஆயுள்/மறைமுகம்)", en: "8th lord (life-span & hidden turns)", hi: "अष्टमेश (आयु व गुप्त मोड़)" },
+    eighthLordIndex, natalPlanets, lagnaSign,
+  ));
+
+  // Overall lifetime headline from the four pillars (skip the sign pillar's neutral 50).
+  const scored = pillars.filter((p) => p.planetIndex !== null);
+  const score = scored.reduce((a, p) => a + (p.disposition === "subha" ? 1 : p.disposition === "papa" ? -1 : 0), 0);
+  const life: Disposition = score >= 2 ? "subha" : score <= -2 ? "papa" : "mixed";
+  const headline: Bilingual = life === "subha"
+    ? { ta: "வாழ்நாள் அடித்தளம்: வலிமையானது — லக்னம், லக்னாதிபதி, சனி, 8-ம் அதிபதி பெரும்பாலும் சாதகம்.",
+        en: "Lifetime foundation: strong — Lagna, Lagna lord, Saturn and the 8th lord are largely favourable.",
+        hi: "जीवन-आधार: सशक्त — लग्न, लग्नेश, शनि व अष्टमेश अधिकांशतः अनुकूल।" }
+    : life === "papa"
+    ? { ta: "வாழ்நாள் அடித்தளம்: கவனம் தேவை — அடிப்படைத் தூண்கள் பலவீனம்/பாபத்துவம் காட்டுகின்றன.",
+        en: "Lifetime foundation: needs care — the core pillars lean weak or afflicted.",
+        hi: "जीवन-आधार: सतर्कता आवश्यक — मूल स्तंभ कमज़ोर/प्रतिकूल हैं।" }
+    : { ta: "வாழ்நாள் அடித்தளம்: கலப்பு — சில தூண்கள் வலிமை, சில பலவீனம்.",
+        en: "Lifetime foundation: mixed — some pillars are strong, others weak.",
+        hi: "जीवन-आधार: मिश्रित — कुछ स्तंभ सशक्त, कुछ कमज़ोर।" };
+
+  return { lagnaSign, lagnaSignName: lagnaName, headline, pillars };
+}
+
 // ---- Top-level result ------------------------------------------------------
 
 export interface DashaTransitResult {
@@ -421,7 +558,8 @@ export interface DashaTransitResult {
   doubleTransit: DoubleTransit;
   overall: Disposition;
   overallHeadline: Bilingual;
-  timeline: TimelinePeriod[];   // Bhukti windows across ±5 years, current one expanded to Antara
+  lifetime: LifetimeFoundation; // Lagna, Lagna lord, Sani, 8th lord — the natal frame of the whole life
+  timeline: TimelinePeriod[];   // Bhukti windows across the full lifetime (birth → +100y), current one expanded to Antara
   disclaimer: Bilingual;
 }
 
@@ -473,15 +611,16 @@ export function analyzeDashaTransit(
     hi: `वर्तमान दशा × गोचर संयोजन: ${dispWord(overall).hi}. चालू ${running.maha ? (GRAHAS[running.maha.lordIndex].hi ?? GRAHAS[running.maha.lordIndex].en) : ""}${running.bhukti ? " / " + (GRAHAS[running.bhukti.lordIndex].hi ?? GRAHAS[running.bhukti.lordIndex].en) : ""}${running.antara ? " / " + (GRAHAS[running.antara.lordIndex].hi ?? GRAHAS[running.antara.lordIndex].en) : ""}, ${doubleTransit.saturnPhase.hi ?? doubleTransit.saturnPhase.en} के अंतर्गत।`,
   };
 
-  // ---- Timeline: from 1900 through the next 5 years -----------------------
-  // The user wants the full historical depth (every Bhukti period back to 1900)
-  // available, while near-term timing still runs 5 years ahead. The client
+  // ---- Timeline: full lifetime (birth → +100 years) -----------------------
+  // The user wants a lifetime prediction: every Bhukti period from the birth
+  // year through 100 years after birth — not just a 5-year horizon. The client
   // defaults the visible window to 1990 and lets the user reveal the older
   // 1900–1990 periods on demand.
-  const fiveYears = 5 * 365.25 * 24 * 3600 * 1000;
-  const HISTORY_FLOOR = Date.UTC(1900, 0, 1); // Jan 1, 1900
-  const winStart = Math.min(HISTORY_FLOOR, t - fiveYears);
-  const winEnd = t + fiveYears;
+  const HISTORY_FLOOR = Date.UTC(1900, 0, 1); // Jan 1, 1900 (never render older)
+  const birthMs = dasha.periods.length ? dasha.periods[0].start.getTime() : t;
+  const HUNDRED_YEARS = 100 * 365.25 * 24 * 3600 * 1000;
+  const winStart = Math.max(HISTORY_FLOOR, birthMs);
+  const winEnd = birthMs + HUNDRED_YEARS;
 
   const timeline: TimelinePeriod[] = [];
 
@@ -587,12 +726,15 @@ export function analyzeDashaTransit(
 
   timeline.sort((a, b) => a.start.localeCompare(b.start));
 
+  const lifetime = buildLifetimeFoundation(natalPlanets, lagnaSign);
+
   return {
     now: fmt(now),
     running,
     doubleTransit,
     overall,
     overallHeadline,
+    lifetime,
     timeline,
     disclaimer: {
       ta: "இது விம்சோத்தரி தசை + கோச்சார (குரு/சனி உள்பட) கிளாசிக்கல் விதிகளின் அடிப்படையிலான பொதுவான வழிகாட்டுதல்; உறுதியான கணிப்பு அல்ல. முக்கிய முடிவுகளுக்கு அனுபவமிக்க ஜோதிடரை அணுகவும்.",

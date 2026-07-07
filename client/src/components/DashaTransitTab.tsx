@@ -7,6 +7,8 @@ import type {
   LordReading,
   Disposition,
   TimelinePeriod,
+  LifetimeFoundation,
+  FoundationPillar,
 } from "@shared/astro/dasha-transit-analysis";
 import { Card } from "@/components/ui/card";
 import { toneStyle } from "./KNRaoTab";
@@ -21,6 +23,7 @@ import {
   ArrowRight,
   ChevronDown,
   History,
+  Anchor,
 } from "lucide-react";
 
 // Default the visible timeline to periods from 1990 onward; older periods
@@ -239,6 +242,39 @@ function renderTimelineRow(p: TimelinePeriod, key: string, t: TFn) {
   );
 }
 
+// One pillar row inside the Lifetime Foundation card (Lagna, Lagna lord, Sani,
+// 8th lord). Shows the classical sentence plus a strength meter.
+function PillarRow({ pillar, t }: { pillar: FoundationPillar; t: TFn }) {
+  const st = timelineStyle(pillar.disposition);
+  const isSign = pillar.planetIndex === null;
+  return (
+    <li
+      className="rounded-lg border border-card-border bg-background/40 p-2.5"
+      data-testid={`dt-pillar-${pillar.planetIndex ?? "lagna"}`}
+    >
+      <div className="flex items-start gap-2">
+        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${st.dot}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[12.5px] text-foreground leading-snug">{t(pillar.note)}</p>
+          {!isSign && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${st.dot}`}
+                  style={{ width: `${Math.max(4, Math.min(100, pillar.strengthPoints))}%` }}
+                />
+              </div>
+              <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">
+                {pillar.strengthPoints}/100
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 export function DashaTransitTab({ chart }: Props) {
   const { t } = useLang();
   const [showEarlier, setShowEarlier] = useState(false);
@@ -303,6 +339,26 @@ export function DashaTransitTab({ chart }: Props) {
             {t(result.overallHeadline)}
           </p>
         </div>
+      </Card>
+
+      {/* Lifetime foundation — Lagna, Lagna lord, Sani, 8th lord */}
+      <Card className="p-4" data-testid="card-dt-lifetime">
+        <div className="flex items-center gap-2 font-medium">
+          <Anchor className="h-4 w-4 text-primary" /> {t(UI.dtLifetimeTitle)}
+        </div>
+        <div className="mt-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+          <p
+            className="text-[13px] font-medium leading-snug text-foreground"
+            data-testid="text-dt-lifetime-headline"
+          >
+            {t(result.lifetime.headline)}
+          </p>
+        </div>
+        <ul className="mt-3 space-y-2" data-testid="dt-lifetime-pillars">
+          {result.lifetime.pillars.map((p, pi) => (
+            <PillarRow key={pi} pillar={p} t={t} />
+          ))}
+        </ul>
       </Card>
 
       {/* Running dasha lords */}
