@@ -49,21 +49,27 @@ It should print your VPS IP.
 
 ---
 
-## 2. Copy the project to the VPS
+## 2. Clone the repo onto the VPS
 
-From your machine, upload the project folder (or `git clone` it on the VPS):
-
-```bash
-# example with scp (run locally, from the folder that contains tamil-astro/)
-scp -r tamil-astro user@YOUR_VPS_IP:/opt/lokihoro
-```
-
-Then SSH in and enter the folder:
+The project lives at **https://github.com/amhsekol/loki-horo** (private). SSH
+into the VPS and clone it once:
 
 ```bash
 ssh user@YOUR_VPS_IP
-cd /opt/lokihoro   # (the tamil-astro folder you uploaded)
+cd /opt
+
+# Private repo — authenticate with a GitHub token or deploy key. Easiest:
+# create a fine-grained Personal Access Token (repo: Contents = Read) at
+# https://github.com/settings/tokens and use it as the password when prompted.
+git clone https://github.com/amhsekol/loki-horo.git lokihoro
+cd lokihoro
 ```
+
+> Tip: to avoid typing the token every pull, use a deploy key (SSH) or run
+> `git config credential.helper store` once after the first authenticated pull.
+
+From now on, shipping an update is just: **push from your dev environment →
+`git pull` here → rebuild** (see "Day-2 operations" below).
 
 ---
 
@@ -207,9 +213,14 @@ Add this line (runs daily at 3:30am; certbot only renews when near expiry):
 
 ```bash
 cd /opt/lokihoro
-git pull            # or re-upload the folder
+git pull
 docker compose up -d --build
 ```
+
+That's the whole loop: I push new features to `main`/`master` on GitHub from
+here, you run those two commands on the VPS, and the new version is live. The
+`lokihoro_data` volume (members + saved horoscopes) is untouched by rebuilds.
+Your `.env` also stays put — it's git-ignored, so `git pull` never overwrites it.
 
 **View logs:**
 
