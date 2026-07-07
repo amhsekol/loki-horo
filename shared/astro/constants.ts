@@ -687,4 +687,32 @@ export const UI: Record<string, Bilingual> = {
     en: "Neither strongly touches the 10th",
     hi: "दोनों में से कोई दशम को प्रबलता से नहीं छूता",
   },
+
+  // ── Dasha × Gochara (Dasha-transit prediction) ─────────────────────
+  dashaTransitTab: { ta: "தசை–கோச்சாரம்", en: "Dasha · Transit", hi: "दशा · गोचर" },
+  dashaTransitTitle: {
+    ta: "நடப்பு தசை–புக்தி–அந்தரம் & கோச்சார கணிப்பு",
+    en: "Current Dasha–Bhukti–Antara & Transit Forecast",
+    hi: "वर्तमान दशा–भुक्ति–अंतर व गोचर पूर्वानुमान",
+  },
+  dashaTransitSubtitle: {
+    ta: "நடக்கும் மகாதசை/புக்தி/அந்தர அதிபதிகளின் ஜாதக சுபத்துவம்/பாபத்துவம், தற்போதைய கோச்சாரம் (குரு/சனி உள்பட), இரண்டையும் இணைத்து கடந்த 5 & வரும் 5 ஆண்டுகளுக்கு காலவாரியான கணிப்பு.",
+    en: "The running Maha/Bhukti/Antara lords' natal subhatvam/papatvam, their current gochara (incl. Jupiter/Saturn), and the two combined into time-wise guidance for the past 5 and next 5 years.",
+    hi: "चालू महा/भुक्ति/अंतर स्वामियों का जन्म शुभत्व/पापत्व, वर्तमान गोचर (गुरु/शनि सहित), व दोनों का संयोजन — बीते 5 व आगामी 5 वर्षों हेतु समयानुसार मार्गदर्शन।",
+  },
+  dtRunningTitle: { ta: "நடப்பு தசை அதிபதிகள்", en: "Running dasha lords", hi: "वर्तमान दशा स्वामी" },
+  dtDoubleTransit: { ta: "குரு–சனி இரட்டைக் கோச்சாரம்", en: "Jupiter–Saturn double transit", hi: "गुरु–शनि द्वि-गोचर" },
+  dtNatal: { ta: "ஜாதகம்", en: "Natal", hi: "जन्म" },
+  dtTransit: { ta: "கோச்சாரம்", en: "Transit", hi: "गोचर" },
+  dtCombined: { ta: "இணைந்த பலன்", en: "Combined", hi: "संयुक्त" },
+  dtOverall: { ta: "ஒட்டுமொத்தப் பலன்", en: "Overall reading", hi: "समग्र फल" },
+  dtTimelineTitle: { ta: "காலவரிசை — 1990 முதல் & வரும் 5 ஆண்டுகள்", en: "Timeline — from 1990 & next 5 years", hi: "समयरेखा — 1990 से व आगामी 5 वर्ष" },
+  dtStatusPast: { ta: "கடந்தது", en: "Past", hi: "बीता" },
+  dtStatusCurrent: { ta: "நடப்பு", en: "Now", hi: "वर्तमान" },
+  dtStatusFuture: { ta: "வரவிருப்பது", en: "Ahead", hi: "आगामी" },
+  dtDispSubha: { ta: "சுபத்துவம்", en: "Favourable", hi: "शुभ" },
+  dtDispPapa: { ta: "பாபத்துவம்", en: "Guarded", hi: "सतर्क" },
+  dtDispMixed: { ta: "கலப்பு", en: "Mixed", hi: "मिश्रित" },
+  dtShowEarlier: { ta: "முந்தைய காலம் காட்டு (1900–1990)", en: "Show earlier periods (1900–1990)", hi: "पुरानी अवधि दिखाएँ (1900–1990)" },
+  dtHideEarlier: { ta: "முந்தைய காலம் மறை", en: "Hide earlier periods", hi: "पुरानी अवधि छिपाएँ" },
 };

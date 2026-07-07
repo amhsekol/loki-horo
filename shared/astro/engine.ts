@@ -24,6 +24,7 @@ import { analyzeKNRao, type KNRaoAnalysis } from "./knrao-analysis";
 import { analyzeGuruji, type GurujiAnalysis } from "./guruji-analysis";
 import { analyzePersona, type PersonaAnalysis } from "./persona-analysis";
 import { analyzeRiseFall, type RiseFallResult } from "./rise-fall-analysis";
+import { analyzeDashaTransit, type DashaTransitResult } from "./dasha-transit-analysis";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -180,6 +181,7 @@ export interface ChartResult {
   gurujiAnalysis: GurujiAnalysis;
   personaAnalysis: PersonaAnalysis;
   riseFall: RiseFallResult;
+  dashaTransit: DashaTransitResult;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -315,6 +317,9 @@ export function computeChart(input: {
   const riseFall = analyzeRiseFall(
     planets, lagnaRasi, dasha, transitJupiterSign, transitSaturnSign, nowDate,
   );
+  const dashaTransit = analyzeDashaTransit(
+    planets, lagnaRasi, dasha, transitPositions, nowDate,
+  );
 
   return {
     meta: {
@@ -340,7 +345,31 @@ export function computeChart(input: {
     gurujiAnalysis,
     personaAnalysis,
     riseFall,
+    dashaTransit,
   };
+}
+
+// ---- Transit (Gochara) positions for an arbitrary moment ----------------
+// Computes the 9 sidereal planet positions (with dignity) at a given instant.
+// Used by the Dasha–transit prediction engine to read the sky at each period
+// midpoint across the past/next years. `when` is a JS Date interpreted as the
+// actual moment in time (UTC-based); transit positions are location-independent
+// (we only need signs/longitudes, not the ascendant).
+export function transitPositions(when: Date): PlanetPosition[] {
+  const time = Astronomy.MakeTime(when);
+  const jd = julianDay(time);
+  const ayan = lahiriAyanamsa(jd);
+  const planets: PlanetPosition[] = [];
+  for (const { idx, body } of BODY_MAP) {
+    const { sid, speed } = siderealLongitude(body, time, jd);
+    const retro = idx !== 0 && idx !== 1 && speed < 0;
+    planets.push(buildPosition(idx, sid, retro));
+  }
+  const rahuSid = norm360(meanRahuTropical(jd) - ayan);
+  const ketuSid = norm360(rahuSid + 180);
+  planets.push(buildPosition(7, rahuSid, true));
+  planets.push(buildPosition(8, ketuSid, true));
+  return planets;
 }
 
 // ========================= PANCHANGAM =====================================
