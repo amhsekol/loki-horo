@@ -1,11 +1,13 @@
 # ============================================================================
-# LOKI HORO — Docker Compose (app + Nginx reverse proxy with HTTPS)
+# LOKI HORO — Docker Compose (Traefik-routed, single app service)
 #
-# Two services:
-#   - app:   the Node/Express container (built from ./Dockerfile). Not exposed
-#            to the host directly; only reachable inside the Docker network.
-#   - nginx: terminates TLS for predict.lokeshmani.com and proxies to app:5000.
-#            Let's Encrypt certs live in ./certbot (mounted read-only).
+# This VPS already runs a Traefik reverse proxy (from the n8n stack) that owns
+# ports 80/443 and issues Let's Encrypt certs for all subdomains. We do NOT run
+# our own nginx — instead the app container joins Traefik's network (n8n_default)
+# and Traefik routes predict.lokeshmani.com -> app:5000 with automatic HTTPS.
+#
+# Labels mirror the existing wedding-upload app exactly (entrypoints web+websecure,
+# certresolver mytlschallenge, HSTS/security headers middleware).
 #
 # Persistent data lives in the named volume `lokihoro_data` mounted at /data,
 # so data.db + sessions.db survive `docker compose down` / redeploys.
@@ -21,8 +23,6 @@ services:
     env_file:
       - .env
     environment:
-      # These override / guarantee the container-internal values regardless of
-      # what's in .env. DB_PATH points inside the mounted volume.
       NODE_ENV: production
       PORT: "5000"
       DB_PATH: /data/data.db
@@ -31,33 +31,36 @@ services:
     expose:
       - "5000"
     networks:
-      - web
+      - n8n_default
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/auth/config',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 20s
-
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: lokihoro-nginx
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-    networks:
-      - web
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "n8n_default"
+      # Router: predict.lokeshmani.com over HTTP + HTTPS
+      traefik.http.routers.predict.rule: "Host(`predict.lokeshmani.com`)"
+      traefik.http.routers.predict.entrypoints: "web,websecure"
+      traefik.http.routers.predict.tls: "true"
+      traefik.http.routers.predict.tls.certresolver: "mytlschallenge"
+      traefik.http.routers.predict.middlewares: "predict@docker"
+      # Backend service port
+      traefik.http.services.predict.loadbalancer.server.port: "5000"
+      # Security headers + force HTTPS (mirrors wedding-upload)
+      traefik.http.middlewares.predict.headers.SSLRedirect: "true"
+      traefik.http.middlewares.predict.headers.STSSeconds: "315360000"
+      traefik.http.middlewares.predict.headers.STSIncludeSubdomains: "true"
+      traefik.http.middlewares.predict.headers.STSPreload: "true"
+      traefik.http.middlewares.predict.headers.forceSTSHeader: "true"
+      traefik.http.middlewares.predict.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.predict.headers.browserXSSFilter: "true"
 
 volumes:
   lokihoro_data:
 
 networks:
-  web:
-    driver: bridge
+  n8n_default:
+    external: true
