@@ -47,6 +47,136 @@ function dignityDisposition(dig: DignityResult | null): { disp: Disposition; poi
   return { disp: "mixed", points: dig.points };                        // friend/neutral
 }
 
+// ---------------------------------------------------------------------------
+// SPECIAL LAGNA-SPECIFIC PLACEMENT RULES (classical bhava-lord yogas)
+// ---------------------------------------------------------------------------
+// Some guruji / classical rules override the plain dignity + house reading for
+// a particular planet in a particular house, but ONLY for a specific lagna.
+// Example (confirmed from a guruji session): for MITHUNA (Gemini) lagna,
+// Budha/Mercury in the 12th house is specially FAVOURABLE (subha) — even
+// though a lagna-lord in the 12th normally reads as weak/medium.
+//
+// The table is intentionally an extensible lookup keyed on
+//   { lagnaSign, planetIndex, natalHouse }  →  { disp, points, note }
+// so more guruji rules can be dropped in over time without touching the
+// scoring code. `points` is the strength (0..100) to show on the meters, and
+// `note` is an optional short reason appended to the pillar/clause text.
+//
+// Planet indices: 0=Surya 1=Chandra 2=Sevvai 3=Budha 4=Guru 5=Sukra 6=Sani 7=Rahu 8=Ketu
+// Sign indices:   0=Mesha .. 2=Mithuna(Gemini) .. 11=Meena
+
+export interface SpecialPlacementRule {
+  lagnaSign: number;
+  planetIndex: number;
+  natalHouse: number;         // 1..12, counted from Lagna
+  disp: Disposition;          // overriding disposition
+  points: number;             // overriding strength (0..100) for the meters
+  note: Bilingual;            // short classical reason
+}
+
+export const SPECIAL_PLACEMENT_RULES: SpecialPlacementRule[] = [
+  {
+    // Mithuna lagna + Budha (lagna lord) in the 12th → specially favourable.
+    lagnaSign: 2,
+    planetIndex: 3,
+    natalHouse: 12,
+    disp: "subha",
+    points: 80,
+    note: {
+      ta: "சிறப்பு விதி: மிதுன லக்னத்திற்கு புதன் 12-ல் இருப்பது மிகவும் சாதகம் (லக்னாதிபதி வியய ஸ்தானத்தில் — சிறப்பு யோகம்).",
+      en: "Special rule: for Mithuna (Gemini) lagna, Mercury in the 12th is highly favourable (lagna lord in the 12th — a special yoga).",
+      hi: "विशेष नियम: मिथुन लग्न के लिए बुध का 12वें में होना अत्यंत अनुकूल है (लग्नेश व्यय भाव में — विशेष योग)।",
+    },
+  },
+];
+
+// Look up a special override for a planet at a natal house for a given lagna.
+// Returns null when no special rule applies (normal dignity scoring is used).
+function specialPlacementRule(
+  lagnaSign: number,
+  planetIndex: number,
+  natalHouse: number,
+): SpecialPlacementRule | null {
+  return (
+    SPECIAL_PLACEMENT_RULES.find(
+      (r) =>
+        r.lagnaSign === lagnaSign &&
+        r.planetIndex === planetIndex &&
+        r.natalHouse === natalHouse,
+    ) ?? null
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PARIVARTANA (mutual sign exchange) — e.g. Sani in a Guru sign while Guru is
+// in a Sani sign. The two planets trade lordships and BOTH gain great strength
+// (parivartana yoga). Classically the exchange "ripens" — its full result shows
+// in the SECOND HALF of that planet's dasha. We detect it generically for any
+// pair so a planet that looks debilitated/weak by plain dignity is lifted.
+
+// Return the partner planet index if `planetIndex` is in a mutual sign exchange,
+// else null. A planet in sign S has dispositor D = RASI_LORDS[S]; if D sits in a
+// sign ruled by `planetIndex`, the two are in parivartana.
+function parivartanaPartner(
+  planetIndex: number,
+  natalPlanets: PlanetPosition[],
+): number | null {
+  const me = natalPlanets.find((p) => p.index === planetIndex);
+  if (!me) return null;
+  const dispositor = RASI_LORDS[me.rasiIndex];
+  if (dispositor === planetIndex) return null; // in own sign, not an exchange
+  const other = natalPlanets.find((p) => p.index === dispositor);
+  if (!other) return null;
+  // Does the dispositor sit in a sign that `planetIndex` rules?
+  if (RASI_LORDS[other.rasiIndex] === planetIndex) return dispositor;
+  return null;
+}
+
+// Natal disposition + strength for a planet, applying any special lagna rule
+// AND parivartana on top of the plain dignity reading. This is the single
+// source of truth for "how good is this planet natally" so pillars, clauses
+// and scoring all agree.
+function natalDispWithRules(
+  planetIndex: number,
+  natalSign: number,
+  natalHouse: number,
+  lagnaSign: number,
+  dig: DignityResult | null,
+  natalPlanets?: PlanetPosition[],
+): {
+  disp: Disposition;
+  points: number;
+  special: SpecialPlacementRule | null;
+  parivartanaWith: number | null;
+} {
+  const special = specialPlacementRule(lagnaSign, planetIndex, natalHouse);
+  if (special) return { disp: special.disp, points: special.points, special, parivartanaWith: null };
+
+  const base = dignityDisposition(dig);
+
+  // Parivartana lift: a mutual exchange makes both planets effectively strong.
+  // Raise a weak/mixed planet to subha and floor its strength at 70 (the pair
+  // reaches "ultimate power", classically ripening in the dasha's second half).
+  const partner = natalPlanets ? parivartanaPartner(planetIndex, natalPlanets) : null;
+  if (partner !== null) {
+    const points = Math.max(base.points, 70);
+    return { disp: "subha", points, special: null, parivartanaWith: partner };
+  }
+
+  return { disp: base.disp, points: base.points, special: null, parivartanaWith: null };
+}
+
+// Short note describing a parivartana pairing (with the second-half ripening).
+function parivartanaNote(planetIndex: number, partnerIndex: number): Bilingual {
+  const a = GRAHAS[planetIndex];
+  const b = GRAHAS[partnerIndex];
+  return {
+    ta: `பரிவர்த்தனை: ${a.ta}–${b.ta} இட மாற்றம் — இரண்டும் பலம் பெறுகின்றன; தசையின் இரண்டாம் பாதியில் முழுப் பலன் வெளிப்படும்.`,
+    en: `Parivartana: ${a.en}–${b.en} exchange signs — both gain great strength; the full result ripens in the SECOND HALF of the dasha.`,
+    hi: `परिवर्तन: ${a.hi ?? a.en}–${b.hi ?? b.en} राशि विनिमय — दोनों अत्यंत बलवान; पूर्ण फल दशा के उत्तरार्ध में परिपक्व होता है।`,
+  };
+}
+
 // House (1..12) of a sign counted from a reference sign (Lagna or Janma-rasi).
 function houseFrom(sign: number, ref: number): number {
   return ((sign - ref + 12) % 12) + 1;
@@ -136,7 +266,8 @@ function readLord(
   const tr = transit.find((p) => p.index === idx)!;
 
   const natalHouse = houseFrom(natal.rasiIndex, lagnaSign);
-  const natalDisp = dignityDisposition(natal.dignity).disp;
+  const natalRuled = natalDispWithRules(idx, natal.rasiIndex, natalHouse, lagnaSign, natal.dignity, natalPlanets);
+  const natalDisp = natalRuled.disp;
 
   const transitHouseFromMoon = houseFrom(tr.rasiIndex, moonSign);
   const transitDignityDisp = dignityDisposition(tr.dignity).disp;
@@ -280,7 +411,8 @@ function lordMomentScore(
   const natal = natalPlanets.find((p) => p.index === lordIndex)!;
   const tr = transit.find((p) => p.index === lordIndex)!;
   const s = (d: Disposition) => (d === "subha" ? 1 : d === "papa" ? -1 : 0);
-  const natalScore = s(dignityDisposition(natal.dignity).disp);
+  const natalHouse = houseFrom(natal.rasiIndex, lagnaSign);
+  const natalScore = s(natalDispWithRules(lordIndex, natal.rasiIndex, natalHouse, lagnaSign, natal.dignity, natalPlanets).disp);
   const trDignity = s(dignityDisposition(tr.dignity).disp);
   const trHouse = s(gocharaHouseTone(houseFrom(tr.rasiIndex, moonSign)));
   return natalScore + trDignity + trHouse;
@@ -354,7 +486,8 @@ function lordClause(
   const nm = GRAHAS[lordIndex];
   const owned = ownedHouses(lordIndex, lagnaSign);
   const natalHouse = houseFrom(natal.rasiIndex, lagnaSign);
-  const natalD = dignityDisposition(natal.dignity).disp;
+  const ruled = natalDispWithRules(lordIndex, natal.rasiIndex, natalHouse, lagnaSign, natal.dignity, natalPlanets);
+  const natalD = ruled.disp;
   const trHouseMoon = houseFrom(tr.rasiIndex, moonSign);
   const trTone = gocharaHouseTone(trHouseMoon);
   const trD = combineDisp(dignityDisposition(tr.dignity).disp, trTone);
@@ -363,10 +496,15 @@ function lordClause(
   const ownedTa = owned.length ? `${owned.map(ordTa).join(", ")} அதிபதி` : "சாயா கிரகம் (அதிபத்தியம் இல்லை)";
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
 
+  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith) : null;
+  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
+  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
+  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
+
   return {
-    ta: `${roleLabel.ta} ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${natalHouse}-ம் பாவத்தில் (${dispWord(natalD).ta}); கோச்சாரத்தில் ஜன்ம ராசியிலிருந்து ${ordTa(trHouseMoon)} இடம்${tr.retrograde ? " (வக்ரம்)" : ""} → ${dispWord(trD).ta}.`,
-    en: `${roleLabel.en} ${nm.en} — ${ownedEn}, natally in the ${ordEn(natalHouse)} house (${dispWord(natalD).en}); in transit ${ordEn(trHouseMoon)} from the Moon${tr.retrograde ? " (retrograde)" : ""} → ${dispWord(trD).en}.`,
-    hi: `${roleLabel.hi ?? roleLabel.en} ${nm.hi ?? nm.en} — ${ownedHi}, जन्म में ${ordHi(natalHouse)} भाव में (${dispWord(natalD).hi}); गोचर में चंद्र से ${ordHi(trHouseMoon)}${tr.retrograde ? " (वक्री)" : ""} → ${dispWord(trD).hi}।`,
+    ta: `${roleLabel.ta} ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${natalHouse}-ம் பாவத்தில் (${dispWord(natalD).ta}); கோச்சாரத்தில் ஜன்ம ராசியிலிருந்து ${ordTa(trHouseMoon)} இடம்${tr.retrograde ? " (வக்ரம்)" : ""} → ${dispWord(trD).ta}.${specTa}`,
+    en: `${roleLabel.en} ${nm.en} — ${ownedEn}, natally in the ${ordEn(natalHouse)} house (${dispWord(natalD).en}); in transit ${ordEn(trHouseMoon)} from the Moon${tr.retrograde ? " (retrograde)" : ""} → ${dispWord(trD).en}.${specEn}`,
+    hi: `${roleLabel.hi ?? roleLabel.en} ${nm.hi ?? nm.en} — ${ownedHi}, जन्म में ${ordHi(natalHouse)} भाव में (${dispWord(natalD).hi}); गोचर में चंद्र से ${ordHi(trHouseMoon)}${tr.retrograde ? " (वक्री)" : ""} → ${dispWord(trD).hi}।${specHi}`,
   };
 }
 
@@ -454,14 +592,19 @@ function planetPillar(
   const nm = GRAHAS[lordIndex];
   const owned = ownedHouses(lordIndex, lagnaSign);
   const natalHouse = houseFrom(natal.rasiIndex, lagnaSign);
-  const dig = dignityDisposition(natal.dignity);
-  const disp = dig.disp;
-  const pts = dig.points;
+  const ruled = natalDispWithRules(lordIndex, natal.rasiIndex, natalHouse, lagnaSign, natal.dignity, natalPlanets);
+  const disp = ruled.disp;
+  const pts = ruled.points;
   const str = strengthWord(pts);
 
   const ownedEn = owned.length ? `lord of the ${owned.map(ordEn).join(" & ")}` : "a shadow node (no rulership)";
   const ownedTa = owned.length ? `${owned.map(ordTa).join(", ")} அதிபதி` : "சாயா கிரகம் (அதிபத்தியம் இல்லை)";
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
+
+  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith) : null;
+  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
+  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
+  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
 
   return {
     role,
@@ -472,9 +615,9 @@ function planetPillar(
     disposition: disp,
     strengthPoints: pts,
     note: {
-      ta: `${role.ta}: ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${ordTa(natalHouse)} பாவத்தில்; ${dispWord(disp).ta}, பலம் ${str.ta} (${pts}/100).`,
-      en: `${role.en}: ${nm.en} — ${ownedEn}, natally in the ${ordEn(natalHouse)} house; ${dispWord(disp).en}, strength ${str.en} (${pts}/100).`,
-      hi: `${role.hi ?? role.en}: ${nm.hi ?? nm.en} — ${ownedHi}, जन्म में ${ordHi(natalHouse)} भाव में; ${dispWord(disp).hi}, बल ${str.hi} (${pts}/100)।`,
+      ta: `${role.ta}: ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${ordTa(natalHouse)} பாவத்தில்; ${dispWord(disp).ta}, பலம் ${str.ta} (${pts}/100).${specTa}`,
+      en: `${role.en}: ${nm.en} — ${ownedEn}, natally in the ${ordEn(natalHouse)} house; ${dispWord(disp).en}, strength ${str.en} (${pts}/100).${specEn}`,
+      hi: `${role.hi ?? role.en}: ${nm.hi ?? nm.en} — ${ownedHi}, जन्म में ${ordHi(natalHouse)} भाव में; ${dispWord(disp).hi}, बल ${str.hi} (${pts}/100)।${specHi}`,
     },
   };
 }
