@@ -128,13 +128,15 @@ export function DateSelect({ date, setDate }: DateFields) {
   const { lang, t } = useLang();
   const { y, mo, d } = parseDate(date);
 
-  // The wheel "starts from 1990" (that value sits at the top / is the default),
-  // then extends 100 years forward (1990–2090) and 100 years backward
-  // (1989–1890) so the full ±100-year range is reachable by scrolling.
-  const BASE_YEAR = 1990;
+  // Year wheel runs in natural chronological order from 1800 up to 2090, so
+  // older years sit above and newer years below (easy to scroll either way).
+  // 1990 is the default resting position (see DEFAULT_YEAR) so current periods
+  // are centered on first open, while dates back to 1800 remain selectable.
+  const MIN_YEAR = 1800;
+  const MAX_YEAR = 2090;
+  const DEFAULT_YEAR = 1990;
   const years: WheelOption[] = [];
-  for (let yr = BASE_YEAR; yr <= BASE_YEAR + 100; yr++) years.push({ value: String(yr), label: String(yr) });
-  for (let yr = BASE_YEAR - 1; yr >= BASE_YEAR - 100; yr--) years.push({ value: String(yr), label: String(yr) });
+  for (let yr = MIN_YEAR; yr <= MAX_YEAR; yr++) years.push({ value: String(yr), label: String(yr) });
 
   const months: WheelOption[] = GREGORIAN_MONTHS.map((m, i) => ({ value: pad2(i + 1), label: tl(m, lang) }));
 
