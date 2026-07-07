@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import { useLang } from "@/lib/lang";
+import { useAuth } from "@/lib/auth";
 import { useNav, type ModuleKey } from "@/lib/nav";
 import { UI } from "@shared/astro/constants";
-import { Sparkles, CalendarDays, History, Settings as SettingsIcon } from "lucide-react";
+import { Sparkles, CalendarDays, History, Users, Settings as SettingsIcon, LogOut } from "lucide-react";
 
 function Logo() {
   return (
@@ -22,16 +23,25 @@ function Logo() {
   );
 }
 
-const NAV_ITEMS: { key: ModuleKey; label: keyof typeof UI; icon: typeof Sparkles }[] = [
+type NavItem = { key: ModuleKey; label: keyof typeof UI; icon: typeof Sparkles };
+
+const BASE_NAV: NavItem[] = [
   { key: "jathagam", label: "jathagam", icon: Sparkles },
   { key: "kocharam", label: "panchangam", icon: CalendarDays },
   { key: "saved", label: "savedShort", icon: History },
-  { key: "settings", label: "settings", icon: SettingsIcon },
 ];
+const ADMIN_NAV: NavItem = { key: "members", label: "membersTab", icon: Users };
+const SETTINGS_NAV: NavItem = { key: "settings", label: "settings", icon: SettingsIcon };
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLang();
+  const { user, isAdmin, logout } = useAuth();
   const { active, setActive } = useNav();
+
+  // Admins get an extra "Members" tab between Saved and Settings.
+  const NAV_ITEMS: NavItem[] = isAdmin
+    ? [...BASE_NAV, ADMIN_NAV, SETTINGS_NAV]
+    : [...BASE_NAV, SETTINGS_NAV];
 
   return (
     <div className="min-h-screen bg-background text-foreground relative">
@@ -61,6 +71,33 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
           </button>
 
+          <div className="flex items-center gap-2 min-w-0">
+          {/* Signed-in identity + sign out */}
+          {user && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="hidden sm:flex flex-col items-end min-w-0 leading-tight" data-testid="text-current-user">
+                <span className="text-xs font-medium text-foreground truncate max-w-[10rem]">{user.displayName}</span>
+                <span className="text-[10px] text-muted-foreground truncate max-w-[10rem]">
+                  {isAdmin ? t(UI.adminBadge) : user.email}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { void logout(); }}
+                data-testid="button-signout"
+                aria-label={t(UI.signOut)}
+                title={t(UI.signOut)}
+                className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t(UI.signOut)}</span>
+              </button>
+            </div>
+          )}
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-5xl px-4 hidden md:flex justify-end pb-2">
           {/* Desktop inline nav (bottom bar remains primary on mobile) */}
           <nav className="hidden md:flex items-center gap-1 rounded-full bg-secondary/50 p-1">
             {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
@@ -93,7 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Primary"
       >
-        <div className="mx-auto max-w-5xl grid grid-cols-4">
+        <div className={`mx-auto max-w-5xl grid ${NAV_ITEMS.length === 5 ? "grid-cols-5" : "grid-cols-4"}`}>
           {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
             const on = active === key;
             return (

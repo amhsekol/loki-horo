@@ -275,7 +275,9 @@ export function lagnaShortForScript(script: ChartScript): string {
 export const UI: Record<string, Bilingual> = {
   appName: { ta: "LOKI ஜோதிடம்", en: "LOKI HORO", hi: "LOKI ज्योतिष" },
   jathagam: { ta: "ஜாதகம்", en: "Jathagam", hi: "जन्म कुंडली" },
-  panchangam: { ta: "கோசாரம்", en: "Kocharam", hi: "कोचारम" },
+  // Kocharam (Tamil) = Gochara/Gochar (Sanskrit/Hindi) = planetary transit.
+  // Same concept, three languages: கோள்+சாரம் "movement of planets".
+  panchangam: { ta: "கோச்சாரம்", en: "Gochar (Transit)", hi: "गोचर (ट्रांज़िट)" },
   settings: { ta: "அமைப்புகள்", en: "Settings", hi: "सेटिंग्स" },
   savedShort: { ta: "சேமித்தவை", en: "Saved", hi: "सहेजे" },
   language: { ta: "மொழி", en: "Language", hi: "भाषा" },
@@ -534,4 +536,155 @@ export const UI: Record<string, Bilingual> = {
   atDeg: { ta: "பாகையில்", en: "at", hi: "पर" },
   closeDetail: { ta: "மூடு", en: "Close", hi: "बंद करें" },
   emptyBox: { ta: "காலி ராசி", en: "Empty sign", hi: "रिक्त राशि" },
+
+  // ── KN Rao interpretive analysis (verdicts) ──────────────────
+  knRaoAnalysisTitle: { ta: "கே.என். ராவ் — கணிப்பு முடிவுகள்", en: "KN Rao — Predictive Read", hi: "के.एन. राव — भविष्यवाणी" },
+  knRaoAnalysisDesc: {
+    ta: "சர காரகர்கள் + பாவங்கள் + நவாம்சத்தை இணைத்து தொழில், திருமணம், குழந்தைகள், யோகங்கள் மற்றும் ஆன்மிகம் குறித்த முடிவுகள்.",
+    en: "Career, marriage, children, yogas and spirituality read from Chara Karakas + houses + navamsa together.",
+    hi: "चर कारक + भाव + नवांश मिलाकर करियर, विवाह, संतान, योग व अध्यात्म पर निष्कर्ष।",
+  },
+  rulesApplied: { ta: "பயன்படுத்தப்பட்ட விதிகள்", en: "Rules applied", hi: "लागू नियम" },
+
+  // ── Aditya Guruji tab ────────────────────────────────────────
+  gurujiTab: { ta: "ஆதித்யா குருஜி", en: "Aditya Guruji", hi: "आदित्य गुरुजी" },
+  gurujiTitle: { ta: "ஆதித்யா குருஜி — சுபத்துவம் & பாபத்துவம்", en: "Aditya Guruji — Subathuvam & Papathuvam", hi: "आदित्य गुरुजी — सुभत्वम व पापत्वम" },
+  gurujiSubtitle: {
+    ta: "ஒவ்வொரு கிரகத்தின் சுபத்துவம் (நன்மை), பாபத்துவம் (தீமை) மற்றும் சூட்சும வலு; அஸ்தமனம், பாதகம், 6-8-12 சுமை மற்றும் அதி யோகம்.",
+    en: "Each planet's Subathuvam (beneficence), Papathuvam (maleficence) and Sootchuma Valu; plus Astamana, Bhadhaka, the 6-8-12 load and Adhi Yoga.",
+    hi: "प्रत्येक ग्रह का सुभत्वम (शुभता), पापत्वम (अशुभता) व सूक्ष्म बल; साथ ही अस्तमन, बाधक, 6-8-12 भार व अधि योग।",
+  },
+  scoreboard: { ta: "கிரக வலு அட்டவணை", en: "Planet Strength Scoreboard", hi: "ग्रह बल तालिका" },
+  subathuvam: { ta: "சுபத்துவம்", en: "Subathuvam", hi: "सुभत्वम" },
+  papathuvam: { ta: "பாபத்துவம்", en: "Papathuvam", hi: "पापत्वम" },
+  sootchumaValu: { ta: "சூட்சும வலு", en: "Sootchuma Valu", hi: "सूक्ष्म बल" },
+  netStrength: { ta: "நிகர வலு", en: "Net", hi: "शुद्ध" },
+  bandHigh: { ta: "உயர் நன்மை", en: "Strongly beneficial", hi: "अति शुभ" },
+  bandMedium: { ta: "நடுத்தர", en: "Moderate", hi: "मध्यम" },
+  bandLow: { ta: "பலவீனம்", en: "Weak", hi: "निर्बल" },
+  bandAfflicted: { ta: "பீடிக்கப்பட்டது", en: "Afflicted", hi: "पीड़ित" },
+  gurujiFindings: { ta: "முக்கிய கண்டுபிடிப்புகள்", en: "Key Findings", hi: "मुख्य निष्कर्ष" },
+  toneGood: { ta: "சாதகம்", en: "Favourable", hi: "अनुकूल" },
+  toneMixed: { ta: "கலப்பு", en: "Mixed", hi: "मिश्रित" },
+  toneCaution: { ta: "எச்சரிக்கை", en: "Caution", hi: "सावधानी" },
+  toneInfo: { ta: "தகவல்", en: "Note", hi: "सूचना" },
+
+  // ── About the Person (Persona) tab ───────────────────────────
+  personaTab: { ta: "நபர் பற்றி", en: "About the Person", hi: "व्यक्ति के बारे में" },
+  personaTitle: { ta: "இந்த நபரைப் பற்றி", en: "About This Person", hi: "इस व्यक्ति के बारे में" },
+  personaSubtitle: {
+    ta: "லக்னம் + ராசி இயல்பு மற்றும் கிரக வலு/யோகங்களை இணைத்து குணநலன்கள்; ஏன் அப்படி என்பதற்கான காரணத்துடன். மேலும் கடந்த தசைகளின் அடிப்படையில் நிகழ்ந்திருக்கக்கூடிய நிகழ்வுகள் — நிகழ்தகவு % உடன்.",
+    en: "Character traits combining Lagna + Moon-sign nature with planetary strength and yogas — each with the reason WHY. Plus likely past events derived from your elapsed dasha periods, each with a probability %.",
+    hi: "लग्न + चंद्र-राशि स्वभाव को ग्रह-बल व योगों के साथ जोड़कर बनाए गए गुण — प्रत्येक के 'क्यों' कारण सहित। साथ ही बीती दशाओं के आधार पर संभावित अतीत की घटनाएँ — प्रत्येक की प्रायिकता % सहित।",
+  },
+  characterHeading: { ta: "குணநலன்கள்", en: "Character Traits", hi: "चरित्र लक्षण" },
+  pastEventsHeading: { ta: "கடந்த நிகழ்வுகள் (தசை அடிப்படையில்)", en: "Likely Past Events (Dasha-based)", hi: "संभावित अतीत घटनाएँ (दशा-आधारित)" },
+  whyLabel: { ta: "ஏன்", en: "Why", hi: "क्यों" },
+  probabilityLabel: { ta: "நிகழ்தகவு", en: "Probability", hi: "प्रायिकता" },
+  personaDisclaimer: {
+    ta: "இவை பாரம்பரிய ஜோதிட விதிகளின் அடிப்படையிலான பொதுவான அறிகுறிகள் மட்டுமே; உறுதியான கணிப்புகள் அல்ல.",
+    en: "These are general indications based on classical astrological rules — guidance, not guaranteed predictions.",
+    hi: "ये शास्त्रीय ज्योतिष नियमों पर आधारित सामान्य संकेत हैं — मार्गदर्शन, निश्चित भविष्यवाणी नहीं।",
+  },
+
+  // ── Accounts / Auth ──────────────────────────────────────────
+  signIn: { ta: "உள்நுழை", en: "Sign In", hi: "साइन इन" },
+  signUp: { ta: "பதிவு செய்", en: "Sign Up", hi: "साइन अप" },
+  signOut: { ta: "வெளியேறு", en: "Sign Out", hi: "साइन आउट" },
+  authWelcome: { ta: "லோகி ஹோரோவுக்கு வரவேற்கிறோம்", en: "Welcome to LOKI HORO", hi: "लोकी होरो में आपका स्वागत है" },
+  authTagline: {
+    ta: "உங்கள் ஜாதகங்கள் தனிப்பட்டவை. உள்நுழைந்து நீங்கள் சேமித்தவற்றை மட்டும் பார்க்கவும்.",
+    en: "Your charts are private. Sign in to see only the ones you save.",
+    hi: "आपकी कुंडलियाँ निजी हैं। साइन इन करके केवल अपनी सहेजी कुंडलियाँ देखें।",
+  },
+  emailLabel: { ta: "மின்னஞ்சல்", en: "Email", hi: "ईमेल" },
+  passwordLabel: { ta: "கடவுச்சொல்", en: "Password", hi: "पासवर्ड" },
+  nameLabel: { ta: "பெயர்", en: "Name", hi: "नाम" },
+  noAccountYet: { ta: "கணக்கு இல்லையா? பதிவு செய்யவும்", en: "No account? Sign up", hi: "खाता नहीं? साइन अप करें" },
+  haveAccount: { ta: "ஏற்கனவே கணக்கு உள்ளதா? உள்நுழையவும்", en: "Already have an account? Sign in", hi: "पहले से खाता है? साइन इन करें" },
+  authError: { ta: "தவறான மின்னஞ்சல் அல்லது கடவுச்சொல்.", en: "Invalid email or password.", hi: "अमान्य ईमेल या पासवर्ड।" },
+  orLabel: { ta: "அல்லது", en: "or", hi: "या" },
+  continueWithGoogle: { ta: "Google மூலம் தொடரவும்", en: "Continue with Google", hi: "Google से जारी रखें" },
+  loggedInAs: { ta: "உள்நுழைந்துள்ளவர்", en: "Signed in as", hi: "साइन इन" },
+  adminBadge: { ta: "நிர்வாகி", en: "Admin", hi: "एडमिन" },
+
+  // ── Sharing ──────────────────────────────────────────────────
+  share: { ta: "பகிர்", en: "Share", hi: "साझा करें" },
+  shareChartTitle: { ta: "இந்த ஜாதகத்தைப் பகிர்", en: "Share this chart", hi: "यह कुंडली साझा करें" },
+  shareByEmail: { ta: "பயனரின் மின்னஞ்சலை உள்ளிடவும்", en: "Enter the user's email", hi: "उपयोगकर्ता का ईमेल दर्ज करें" },
+  sharedWith: { ta: "பகிரப்பட்டவர்கள்", en: "Shared with", hi: "इनके साथ साझा" },
+  noShares: { ta: "இதுவரை யாருடனும் பகிரப்படவில்லை.", en: "Not shared with anyone yet.", hi: "अभी तक किसी के साथ साझा नहीं।" },
+  removeShare: { ta: "நீக்கு", en: "Remove", hi: "हटाएँ" },
+  shareAdded: { ta: "பகிரப்பட்டது", en: "Shared", hi: "साझा किया गया" },
+  close: { ta: "மூடு", en: "Close", hi: "बंद करें" },
+  ownedBy: { ta: "உரிமையாளர்", en: "Owner", hi: "स्वामी" },
+  sharedBadge: { ta: "பகிரப்பட்டது", en: "Shared with you", hi: "आपके साथ साझा" },
+
+  // ── Admin members view ───────────────────────────────────────
+  membersTab: { ta: "உறுப்பினர்கள்", en: "Members", hi: "सदस्य" },
+  membersTitle: { ta: "அனைத்து உறுப்பினர்கள்", en: "All Members", hi: "सभी सदस्य" },
+  membersSubtitle: {
+    ta: "நிர்வாகியாக, அனைத்து உறுப்பினர்களையும் அவர்களின் சேமித்த ஜாதகங்களின் எண்ணிக்கையையும் காணலாம்.",
+    en: "As admin, you can see every member and how many charts each has saved.",
+    hi: "एडमिन के रूप में, आप हर सदस्य और उनकी सहेजी कुंडलियों की संख्या देख सकते हैं।",
+  },
+  chartCountLabel: { ta: "சேமித்த ஜாதகங்கள்", en: "Saved charts", hi: "सहेजी कुंडलियाँ" },
+  joinedLabel: { ta: "சேர்ந்த நாள்", en: "Joined", hi: "शामिल हुए" },
+
+  // ── K.N. Rao Rise / Surprise / Fall tab ──────────────────────
+  riseFallTab: { ta: "உயர்வு / வீழ்ச்சி", en: "Rise / Fall", hi: "उत्थान / पतन" },
+  riseFallTitle: {
+    ta: "கே.என்.ராவ் — உயர்வு, எதிர்பாராதது & வீழ்ச்சி",
+    en: "K.N. Rao — Rise, Surprise & Fall",
+    hi: "के.एन. राव — उत्थान, आश्चर्य व पतन",
+  },
+  riseFallSubtitle: {
+    ta: "கே.என்.ராவின் அரசியல் முன்கணிப்பு முறை: ராஜயோகங்கள், குரு-சனி இரட்டை கோச்சாரம், தசை காலம் — உயர்வு, எதிர்பாராத திருப்பம் அல்லது வீழ்ச்சியைக் கணித்தல்.",
+    en: "K.N. Rao's political-prediction method: Rajayogas, the Jupiter–Saturn double transit, and Dasha timing — read together to gauge a rise, a surprise turn, or a fall.",
+    hi: "के.एन. राव की राजनीतिक भविष्यवाणी पद्धति: राजयोग, गुरु–शनि दोहरा गोचर, व दशा-काल — मिलकर उत्थान, आश्चर्यजनक मोड़ या पतन का आकलन।",
+  },
+  riseFallHeadline: { ta: "சாராம்சம்", en: "Summary", hi: "सारांश" },
+  riseFallConfidence: { ta: "நம்பகத்தன்மை", en: "Confidence", hi: "विश्वास" },
+  riseFallYogaStrength: { ta: "யோக பலம்", en: "Yoga strength", hi: "योग बल" },
+  riseFallYogaCount: { ta: "ராஜயோகங்கள்", en: "Rajayogas", hi: "राजयोग" },
+  riseFallTransit: { ta: "கோச்சார அமைப்பு", en: "Transit pattern", hi: "गोचर पैटर्न" },
+  riseFallHouseFocus: { ta: "முக்கிய பாவங்கள்", en: "House focus", hi: "मुख्य भाव" },
+  riseFallHouseLabel: { ta: "பாவம்", en: "House", hi: "भाव" },
+
+  // Outcome classes
+  outcomeRise: { ta: "உயர்வு", en: "Rise", hi: "उत्थान" },
+  outcomeSurprise: { ta: "எதிர்பாராதது", en: "Surprise", hi: "आश्चर्य" },
+  outcomeFall: { ta: "வீழ்ச்சி", en: "Fall", hi: "पतन" },
+
+  // Yoga strength labels
+  yogaStrong: { ta: "வலுவானது", en: "Strong", hi: "प्रबल" },
+  yogaModerate: { ta: "மிதமானது", en: "Moderate", hi: "मध्यम" },
+  yogaOrdinary: { ta: "சாதாரணமானது", en: "Ordinary", hi: "साधारण" },
+
+  // Jupiter-Saturn double-transit pattern labels
+  patternBlessGive: {
+    ta: "சனி அருள்புரிகிறார் & குரு வழங்குகிறார்",
+    en: "Saturn blesses & Jupiter gives",
+    hi: "शनि आशीष देता है व गुरु प्रदान करता है",
+  },
+  patternTormentProtect: {
+    ta: "சனி வருத்துகிறார் & குரு காக்கிறார்",
+    en: "Saturn torments & Jupiter protects",
+    hi: "शनि कष्ट देता है व गुरु रक्षा करता है",
+  },
+  patternTormentWithdraw: {
+    ta: "சனி வருத்துகிறார் & குரு பாதுகாப்பை விலக்குகிறார்",
+    en: "Saturn torments & Jupiter withdraws protection",
+    hi: "शनि कष्ट देता है व गुरु रक्षा हटा लेता है",
+  },
+  patternCombineDestroy: {
+    ta: "சனி & குரு சேர்ந்து அழிக்கின்றனர்",
+    en: "Saturn & Jupiter combine to destroy",
+    hi: "शनि व गुरु मिलकर विनाश करते हैं",
+  },
+  patternNeutral: {
+    ta: "10ஆம் பாவத்தை வலுவாக தொடாத நிலை",
+    en: "Neither strongly touches the 10th",
+    hi: "दोनों में से कोई दशम को प्रबलता से नहीं छूता",
+  },
 };

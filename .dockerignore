@@ -1,0 +1,31 @@
+# Keep the build context small and never leak local state / secrets into the image.
+node_modules
+dist
+.vite
+
+# Local database + sessions — the container uses the mounted /data volume instead.
+data
+data.db
+data.db-shm
+data.db-wal
+data.db-journal
+sessions.db
+*.sqlite
+*.sqlite3
+
+# Secrets & env
+.env
+.env.*
+!.env.example
+
+# VCS / editor / OS cruft
+.git
+.gitignore
+*.log
+.DS_Store
+
+# Reverse-proxy runtime state (host-mounted, not needed in the app image)
+certbot
+
+# Docs / packaging artifacts
+*.zip

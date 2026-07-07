@@ -1,11 +1,53 @@
 import { useLang } from "@/lib/lang";
 import { UI } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
+import type { Tone } from "@shared/astro/knrao-analysis";
 import { Card } from "@/components/ui/card";
-import { BookOpen, Crown, Timer, Target, Compass } from "lucide-react";
+import {
+  BookOpen, Crown, Timer, Target, Compass,
+  Sparkles, CheckCircle2, AlertTriangle, Info, Scale,
+} from "lucide-react";
 
 interface Props {
   chart: ChartResult | null;
+}
+
+// Tone → icon + colour classes, shared visual grammar for verdict cards.
+export function toneStyle(tone: Tone) {
+  switch (tone) {
+    case "good":
+      return {
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        chip: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+        bar: "bg-emerald-500",
+        border: "border-emerald-500/30",
+        labelKey: UI.toneGood,
+      };
+    case "mixed":
+      return {
+        icon: <Scale className="h-4 w-4" />,
+        chip: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+        bar: "bg-amber-500",
+        border: "border-amber-500/30",
+        labelKey: UI.toneMixed,
+      };
+    case "caution":
+      return {
+        icon: <AlertTriangle className="h-4 w-4" />,
+        chip: "bg-destructive/12 text-destructive",
+        bar: "bg-destructive",
+        border: "border-destructive/30",
+        labelKey: UI.toneCaution,
+      };
+    default:
+      return {
+        icon: <Info className="h-4 w-4" />,
+        chip: "bg-muted text-muted-foreground",
+        bar: "bg-muted-foreground/50",
+        border: "border-border",
+        labelKey: UI.toneInfo,
+      };
+  }
 }
 
 function fmtDeg(d: number): string {
@@ -26,6 +68,7 @@ export function KNRaoTab({ chart }: Props) {
   }
 
   const k = chart.knRao;
+  const a = chart.knRaoAnalysis;
 
   // Determine the current Chara Dasha period by age (from birth year to now).
   const birthYear = Number(chart.meta.date.split("-")[0]);
@@ -80,6 +123,66 @@ export function KNRaoTab({ chart }: Props) {
         </h2>
         <p className="text-sm text-muted-foreground mt-1">{t(UI.knRaoSubtitle)}</p>
       </div>
+
+      {/* ===== Interpretive verdicts (Predictive Read) ===== */}
+      <Card className="p-4 border-primary/30" data-testid="card-knrao-analysis">
+        <div className="flex items-center gap-2 font-medium">
+          <Sparkles className="h-4 w-4 text-primary" /> {t(UI.knRaoAnalysisTitle)}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">{t(UI.knRaoAnalysisDesc)}</p>
+
+        <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2.5">
+          <p className="text-sm font-medium leading-snug" data-testid="text-knrao-headline">
+            {t(a.headline)}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+            {t(a.confirmationNote)}
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {a.sections.map((sec) => (
+            <div key={sec.key} data-testid={`knrao-section-${sec.key}`}>
+              <div className="text-sm font-semibold text-foreground/90 mb-2">{t(sec.title)}</div>
+              <div className="space-y-2">
+                {sec.findings.map((f, fi) => {
+                  const ts = toneStyle(f.tone);
+                  return (
+                    <div
+                      key={fi}
+                      data-testid={`knrao-finding-${sec.key}-${fi}`}
+                      className={`rounded-lg border ${ts.border} bg-card overflow-hidden`}
+                    >
+                      <div className="flex">
+                        <div className={`w-1 shrink-0 ${ts.bar}`} />
+                        <div className="flex-1 p-3">
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div className="font-medium text-sm">{t(f.title)}</div>
+                            <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${ts.chip}`}>
+                              {ts.icon} {t(ts.labelKey)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground/80 mt-1 leading-snug">{t(f.verdict)}</p>
+                          {f.reasons.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                              {f.reasons.map((r, ri) => (
+                                <li key={ri} className="text-[12px] text-muted-foreground flex gap-1.5 leading-snug">
+                                  <span className="text-primary/60 mt-[3px]">•</span>
+                                  <span>{t(r)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Chara Karakas */}
       <Card className="p-4" data-testid="card-chara-karakas">

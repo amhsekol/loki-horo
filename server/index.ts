@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "node:http";
+import { setupSession, attachUser, seedAdmin, setupGoogleOAuth } from "./auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,6 +24,10 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Auth: session store + current-user loader. Must precede API routes.
+setupSession(app);
+app.use(attachUser);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -62,6 +67,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await seedAdmin();
+  // Register Google OAuth strategy + routes (no-op unless GOOGLE_CLIENT_ID /
+  // GOOGLE_CLIENT_SECRET are set). Must run before registerRoutes so the
+  // /api/auth/google routes are in place.
+  await setupGoogleOAuth(app);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

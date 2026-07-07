@@ -1,0 +1,63 @@
+# ============================================================================
+# LOKI HORO — Docker Compose (app + Nginx reverse proxy with HTTPS)
+#
+# Two services:
+#   - app:   the Node/Express container (built from ./Dockerfile). Not exposed
+#            to the host directly; only reachable inside the Docker network.
+#   - nginx: terminates TLS for horo.lokeshmani.com and proxies to app:5000.
+#            Let's Encrypt certs live in ./certbot (mounted read-only).
+#
+# Persistent data lives in the named volume `lokihoro_data` mounted at /data,
+# so data.db + sessions.db survive `docker compose down` / redeploys.
+# ============================================================================
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lokihoro:latest
+    container_name: lokihoro
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # These override / guarantee the container-internal values regardless of
+      # what's in .env. DB_PATH points inside the mounted volume.
+      NODE_ENV: production
+      PORT: "5000"
+      DB_PATH: /data/data.db
+    volumes:
+      - lokihoro_data:/data
+    expose:
+      - "5000"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/auth/config',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: lokihoro-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - web
+
+volumes:
+  lokihoro_data:
+
+networks:
+  web:
+    driver: bridge

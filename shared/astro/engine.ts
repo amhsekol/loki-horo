@@ -20,6 +20,10 @@ import {
   computeCharaKarakas, computeCharaDasha, computeBhriguBindu,
   computeSpecialLagnas, computeArudhaLagna, type KNRaoResult,
 } from "./knrao";
+import { analyzeKNRao, type KNRaoAnalysis } from "./knrao-analysis";
+import { analyzeGuruji, type GurujiAnalysis } from "./guruji-analysis";
+import { analyzePersona, type PersonaAnalysis } from "./persona-analysis";
+import { analyzeRiseFall, type RiseFallResult } from "./rise-fall-analysis";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -172,6 +176,10 @@ export interface ChartResult {
   lagnaLordShadbala: ShadbalaResult | null;
   ashtakavarga: AshtakavargaResult;
   knRao: KNRaoResult;
+  knRaoAnalysis: KNRaoAnalysis;
+  gurujiAnalysis: GurujiAnalysis;
+  personaAnalysis: PersonaAnalysis;
+  riseFall: RiseFallResult;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -285,6 +293,28 @@ export function computeChart(input: {
   const knRao: KNRaoResult = {
     charaKarakas, charaDasha, charaDashaDirection, bhriguBindu, specialLagnas,
   };
+  const knRaoAnalysis = analyzeKNRao(planets, lagnaRasi, navPlanetSigns, knRao);
+  const gurijiMoonSign = planets[1].rasiIndex;
+  const gurujiAnalysis = analyzeGuruji(planets, lagnaRasi, gurijiMoonSign);
+  const personaAnalysis = analyzePersona(
+    planets, lagnaRasi, planets[1].rasiIndex, dasha, gurujiAnalysis, birthEpoch, new Date(),
+  );
+
+  // ---- Rise / Surprise / Fall (KN Rao political-prediction method) ---------
+  // Current transit positions of Jupiter (4) and Saturn (6) in the sidereal
+  // (Lahiri) zodiac, for the Jupiter–Saturn double-transit stage.
+  const nowDate = new Date();
+  const nowTime = Astronomy.MakeTime(nowDate);
+  const nowJd = julianDay(nowTime);
+  const transitJupiterSign = Math.floor(
+    siderealLongitude(Astronomy.Body.Jupiter, nowTime, nowJd).sid / 30,
+  ) % 12;
+  const transitSaturnSign = Math.floor(
+    siderealLongitude(Astronomy.Body.Saturn, nowTime, nowJd).sid / 30,
+  ) % 12;
+  const riseFall = analyzeRiseFall(
+    planets, lagnaRasi, dasha, transitJupiterSign, transitSaturnSign, nowDate,
+  );
 
   return {
     meta: {
@@ -306,6 +336,10 @@ export function computeChart(input: {
     lagnaLordShadbala,
     ashtakavarga,
     knRao,
+    knRaoAnalysis,
+    gurujiAnalysis,
+    personaAnalysis,
+    riseFall,
   };
 }
 

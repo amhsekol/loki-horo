@@ -17,12 +17,16 @@ import { DashaTable } from "@/components/DashaTable";
 import { IncidentsTab } from "@/components/IncidentsTab";
 import { LagnaDashboard } from "@/components/LagnaDashboard";
 import { AshtakavargaChart } from "@/components/AshtakavargaChart";
+import { KNRaoTab } from "@/components/KNRaoTab";
+import { GurujiTab } from "@/components/GurujiTab";
+import { RiseFallTab } from "@/components/RiseFallTab";
+import { PersonaTab } from "@/components/PersonaTab";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Moon, Star, Sunrise, MapPin, Clock, CalendarRange, LayoutDashboard, Grid3x3, Pencil, Check, User } from "lucide-react";
+import { Sparkles, Moon, Star, Sunrise, MapPin, Clock, CalendarRange, LayoutDashboard, Grid3x3, Pencil, Check, User, BookOpen, Sun, TrendingUp } from "lucide-react";
 
 // Format "HH:MM" (24h) as "h:MM AM/PM" for display.
 function formatTime12(time: string): string {
@@ -73,7 +77,7 @@ export default function Jathagam() {
   const [editSnapshot, setEditSnapshot] = useState<{ date: string; time: string } | null>(null);
   // The exact tz offset of the currently opened saved chart (avoids re-derivation).
   const [activeTz, setActiveTz] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "incidents">("chart");
+  const [activeTab, setActiveTab] = useState<"chart" | "dashboard" | "ashtakavarga" | "knrao" | "guruji" | "risefall" | "persona" | "incidents">("chart");
   // Seed from the startup-chosen preference; still toggleable inline per-chart.
   const [chartStyle, setChartStyle] = useState<"south" | "north">(preferredStyle);
   const [chartScript, setChartScript] = useState<ChartScript>("en");
@@ -401,6 +405,54 @@ export default function Jathagam() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab("knrao")}
+              data-testid="tab-knrao"
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "knrao"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BookOpen className="h-4 w-4" /> {t(UI.knRaoTab)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("guruji")}
+              data-testid="tab-guruji"
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "guruji"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sun className="h-4 w-4" /> {t(UI.gurujiTab)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("risefall")}
+              data-testid="tab-risefall"
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "risefall"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <TrendingUp className="h-4 w-4" /> {t(UI.riseFallTab)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("persona")}
+              data-testid="tab-persona"
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+                activeTab === "persona"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <User className="h-4 w-4" /> {t(UI.personaTab)}
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("incidents")}
               data-testid="tab-incidents"
               className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
@@ -419,6 +471,14 @@ export default function Jathagam() {
             <LagnaDashboard chart={chart} />
           ) : activeTab === "ashtakavarga" ? (
             <AshtakavargaChart chart={chart} />
+          ) : activeTab === "knrao" ? (
+            <KNRaoTab chart={chart} />
+          ) : activeTab === "guruji" ? (
+            <GurujiTab chart={chart} />
+          ) : activeTab === "risefall" ? (
+            <RiseFallTab chart={chart} />
+          ) : activeTab === "persona" ? (
+            <PersonaTab chart={chart} />
           ) : (
           <div className="space-y-8">
           {/* Summary badges */}
