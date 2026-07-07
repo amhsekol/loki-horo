@@ -198,6 +198,65 @@ function parivartanaEffect(
   return { type, disp: "papa", points: Math.min(basePoints, 30), damaged: true };
 }
 
+// --- Dispositor (house-lord) strength -------------------------------------
+// Classical Tamil/Vedic principle: a planet borrows the condition of the LORD
+// of the sign (house) it sits in. If that dispositor is itself strong (uccham /
+// aatchi / moolatrikona) the planet's placement is well-supported and its
+// results are far stronger; if the dispositor is weak (pagai / neecham) the
+// placement is undermined and results are diluted. A planet in its OWN sign is
+// its own lord — no external dependency, so no dispositor adjustment.
+type DispositorTier = "strong" | "supported" | "neutral" | "weak";
+
+interface DispositorStrength {
+  dispositorIndex: number;      // the lord of this planet's natal sign
+  dispositorDignity: DignityResult | null;
+  tier: DispositorTier;
+  delta: number;                // points adjustment applied to the host planet
+}
+
+// Assess the strength of the lord of `planetIndex`'s natal sign.
+// Returns null for Rahu/Ketu (dispositor concept applies to the host, so we
+// still compute it for them via their sign lord) — we DO compute for nodes,
+// since a node in a sign still depends on that sign's lord.
+function dispositorStrength(
+  planetIndex: number,
+  natalSign: number,
+  natalPlanets: PlanetPosition[] | undefined,
+): DispositorStrength | null {
+  if (!natalPlanets) return null;
+  const lord = RASI_LORDS[natalSign];
+  // A (non-node) planet in its own sign is its own dispositor — skip.
+  if (lord === planetIndex) return null;
+  const lordPos = natalPlanets.find((p) => p.index === lord);
+  if (!lordPos) return null;
+  const dig = lordPos.dignity;
+  const pts = dig ? dig.points : 20; // nodes have no dignity — treat neutral
+
+  // Map the dispositor's own dignity onto a tier + a bounded points delta for
+  // the host planet. Exalted/own lord = big boost ("really powerful"); an
+  // enemy/debilitated lord = a real drag.
+  let tier: DispositorTier;
+  let delta: number;
+  if (pts >= 100) { tier = "strong"; delta = 22; }        // uccham
+  else if (pts >= 60) { tier = "strong"; delta = 16; }    // aatchi / moolatrikona
+  else if (pts >= 40) { tier = "supported"; delta = 8; }  // natpu (friend)
+  else if (pts <= 0) { tier = "weak"; delta = -20; }      // neecham
+  else if (pts <= 10) { tier = "weak"; delta = -14; }     // pagai (enemy)
+  else { tier = "neutral"; delta = 0; }                    // samam
+
+  return { dispositorIndex: lord, dispositorDignity: dig, tier, delta };
+}
+
+// Nudge a disposition one step given a signed points delta so the verbal
+// verdict stays consistent with the adjusted strength meter.
+function nudgeDisp(disp: Disposition, delta: number): Disposition {
+  if (delta >= 14 && disp === "mixed") return "subha";
+  if (delta >= 20 && disp === "papa") return "mixed";
+  if (delta <= -14 && disp === "mixed") return "papa";
+  if (delta <= -20 && disp === "subha") return "mixed";
+  return disp;
+}
+
 // Natal disposition + strength for a planet, applying any special lagna rule
 // AND parivartana on top of the plain dignity reading. This is the single
 // source of truth for "how good is this planet natally" so pillars, clauses
@@ -216,6 +275,7 @@ function natalDispWithRules(
   parivartanaWith: number | null;
   parivartanaType: ParivartanaType | null;
   parivartanaDamaged: boolean;
+  dispositor: DispositorStrength | null;
 } {
   const special = specialPlacementRule(lagnaSign, planetIndex, natalHouse);
   if (special)
@@ -226,11 +286,14 @@ function natalDispWithRules(
       parivartanaWith: null,
       parivartanaType: null,
       parivartanaDamaged: false,
+      dispositor: null,
     };
 
   const base = dignityDisposition(dig);
 
   // Parivartana — apply the correct classical type (Maha / Kahala / Dainya).
+  // (An exchange already resolves the two-way dispositor relationship, so we do
+  // not layer a separate dispositor adjustment on top.)
   const partner = natalPlanets ? parivartanaPartner(planetIndex, natalPlanets) : null;
   if (partner !== null) {
     const eff = parivartanaEffect(planetIndex, partner, lagnaSign, base.points);
@@ -241,16 +304,30 @@ function natalDispWithRules(
       parivartanaWith: partner,
       parivartanaType: eff.type,
       parivartanaDamaged: eff.damaged,
+      dispositor: null,
     };
   }
 
+  // Dispositor (house-lord) strength: fold the condition of the sign-lord into
+  // this planet's strength. Skipped when the planet is exalted/debilitated in
+  // its OWN right at an extreme (its own dignity already dominates), so a
+  // strong/weak lord chiefly refines the middle ground.
+  const disp = dispositorStrength(planetIndex, natalSign, natalPlanets);
+  let points = base.points;
+  let leaning = base.disp;
+  if (disp && disp.delta !== 0) {
+    points = Math.max(0, Math.min(100, base.points + disp.delta));
+    leaning = nudgeDisp(base.disp, disp.delta);
+  }
+
   return {
-    disp: base.disp,
-    points: base.points,
+    disp: leaning,
+    points,
     special: null,
     parivartanaWith: null,
     parivartanaType: null,
     parivartanaDamaged: false,
+    dispositor: disp,
   };
 }
 
@@ -369,6 +446,48 @@ function fmt(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Build the trilingual clause explaining the dispositor (house-lord) strength
+// for a planet placed in a sign it does not own. Returns null when there is no
+// dispositor adjustment (own sign, node without data, or exact-neutral lord).
+function dispositorClause(
+  hostIndex: number,
+  disp: DispositorStrength | null,
+): Bilingual | null {
+  if (!disp) return null;
+  const lord = GRAHAS[disp.dispositorIndex];
+  const digTa = disp.dispositorDignity ? disp.dispositorDignity.label.ta : "—";
+  const digEn = disp.dispositorDignity ? disp.dispositorDignity.label.en : "—";
+  const digHi = disp.dispositorDignity
+    ? (disp.dispositorDignity.label.hi ?? disp.dispositorDignity.label.en)
+    : "—";
+  const lordTa = lord.ta;
+  const lordEn = lord.en;
+  const lordHi = lord.hi ?? lord.en;
+
+  if (disp.tier === "strong") {
+    return {
+      ta: `இட அதிபதி பலம்: இந்த ராசியின் அதிபதி ${lordTa} ${digTa} — வலிமையான அதிபதி; இந்த கிரகத்தின் பலன் மிகவும் பலப்படுகிறது.`,
+      en: `House-lord strength: the lord of this sign, ${lordEn}, is ${digEn} — a strong dispositor, so this planet's results are greatly empowered.`,
+      hi: `भाव-स्वामी बल: इस राशि का स्वामी ${lordHi} ${digHi} है — बलवान स्वामी; इस ग्रह का फल अत्यधिक प्रबल होता है।`,
+    };
+  }
+  if (disp.tier === "supported") {
+    return {
+      ta: `இட அதிபதி பலம்: இந்த ராசியின் அதிபதி ${lordTa} ${digTa} — நட்பு நிலை; இந்த கிரகத்திற்கு மிதமான ஆதரவு.`,
+      en: `House-lord strength: the lord of this sign, ${lordEn}, is ${digEn} (friendly) — moderate support for this planet.`,
+      hi: `भाव-स्वामी बल: इस राशि का स्वामी ${lordHi} ${digHi} (मित्र) — इस ग्रह को मध्यम समर्थन।`,
+    };
+  }
+  if (disp.tier === "weak") {
+    return {
+      ta: `இட அதிபதி பலம்: இந்த ராசியின் அதிபதி ${lordTa} ${digTa} — பலவீன அதிபதி (பகை/நீசம்); இந்த கிரகத்தின் பலன் குறைக்கப்படுகிறது.`,
+      en: `House-lord strength: the lord of this sign, ${lordEn}, is ${digEn} (enemy/debilitated) — a weak dispositor, so this planet's results are diluted.`,
+      hi: `भाव-स्वामी बल: इस राशि का स्वामी ${lordHi} ${digHi} (शत्रु/नीच) — कमजोर स्वामी; इस ग्रह का फल क्षीण होता है।`,
+    };
+  }
+  return null; // neutral tier — no meaningful adjustment to mention
+}
+
 // Build the reading for a single dasha lord given the natal chart and a set of
 // transit positions (already computed for the reference moment).
 function readLord(
@@ -408,6 +527,11 @@ function readLord(
       hi: `गोचर: अभी ${(RASIS[tr.rasiIndex].hi ?? tr.rasi.en.split(" (")[0])}${tr.retrograde ? " (वक्री)" : ""}${tr.dignity ? `, ${tr.dignity.label.hi ?? tr.dignity.label.en}` : ""} — जन्म राशि से ${transitHouseFromMoon}वाँ।`,
     },
   ];
+
+  // Dispositor (house-lord) strength clause — the power a planet borrows from
+  // the lord of the sign it occupies. Only present when it materially applies.
+  const dispClause = dispositorClause(idx, natalRuled.dispositor);
+  if (dispClause) reasons.push(dispClause);
 
   const verdict: Bilingual = {
     ta: `${node.lord.ta} — ஜாதகத்தில் ${dispWord(natalDisp).ta}, கோச்சாரத்தில் ${dispWord(transitDisp).ta}; இணைந்த பலன் ${dispWord(combined).ta}.`,
@@ -624,9 +748,10 @@ function lordClause(
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
 
   const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith, ruled.parivartanaType!, ruled.parivartanaDamaged) : null;
-  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
-  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
-  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
+  const disp = dispositorClause(lordIndex, ruled.dispositor);
+  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "") + (disp ? ` ${disp.ta}` : "");
+  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "") + (disp ? ` ${disp.en}` : "");
+  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "") + (disp ? ` ${disp.hi ?? disp.en}` : "");
 
   return {
     ta: `${roleLabel.ta} ${nm.ta} — ${ownedTa}, ஜாதகத்தில் ${natalHouse}-ம் பாவத்தில் (${dispWord(natalD).ta}); கோச்சாரத்தில் ஜன்ம ராசியிலிருந்து ${ordTa(trHouseMoon)} இடம்${tr.retrograde ? " (வக்ரம்)" : ""} → ${dispWord(trD).ta}.${specTa}`,
@@ -1073,9 +1198,10 @@ function planetPillar(
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
 
   const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith, ruled.parivartanaType!, ruled.parivartanaDamaged) : null;
-  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
-  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
-  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
+  const dispCl = dispositorClause(lordIndex, ruled.dispositor);
+  const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "") + (dispCl ? ` ${dispCl.ta}` : "");
+  const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "") + (dispCl ? ` ${dispCl.en}` : "");
+  const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "") + (dispCl ? ` ${dispCl.hi ?? dispCl.en}` : "");
 
   return {
     role,
