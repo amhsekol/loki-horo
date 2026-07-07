@@ -4,7 +4,7 @@
 # Two services:
 #   - app:   the Node/Express container (built from ./Dockerfile). Not exposed
 #            to the host directly; only reachable inside the Docker network.
-#   - nginx: terminates TLS for horo.lokeshmani.com and proxies to app:5000.
+#   - nginx: terminates TLS for destiny.lokeshmani.com and proxies to app:5000.
 #            Let's Encrypt certs live in ./certbot (mounted read-only).
 #
 # Persistent data lives in the named volume `lokihoro_data` mounted at /data,

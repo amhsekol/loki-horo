@@ -1,7 +1,7 @@
 # Deploying LOKI HORO to your Hostinger VPS
 
 This guide takes you from zero to a live, HTTPS site at
-**https://horo.lokeshmani.com**, running in Docker behind Nginx, with a
+**https://destiny.lokeshmani.com**, running in Docker behind Nginx, with a
 persistent SQLite database and optional Google sign-in.
 
 Everything you need is in this project:
@@ -33,16 +33,16 @@ Total time: ~15 minutes.
 
 In your DNS provider for `lokeshmani.com`, add an **A record**:
 
-| Type | Name   | Value              | TTL  |
-| ---- | ------ | ------------------ | ---- |
-| A    | `horo` | `YOUR_VPS_IP`      | 3600 |
+| Type | Name      | Value         | TTL  |
+| ---- | --------- | ------------- | ---- |
+| A    | `destiny` | `YOUR_VPS_IP` | 3600 |
 
-(If your VPS has IPv6, also add an `AAAA` record for `horo`.)
+(If your VPS has IPv6, also add an `AAAA` record for `destiny`.)
 
 Verify it resolves before continuing (may take a few minutes):
 
 ```bash
-dig +short horo.lokeshmani.com
+dig +short destiny.lokeshmani.com
 ```
 
 It should print your VPS IP.
@@ -83,7 +83,7 @@ nano .env
 Fill in **at minimum**:
 
 ```env
-PUBLIC_URL=https://horo.lokeshmani.com
+PUBLIC_URL=https://destiny.lokeshmani.com
 SESSION_SECRET=<paste output of: openssl rand -hex 32>
 ADMIN_DEFAULT_PASSWORD=<a strong password you choose>
 ```
@@ -133,12 +133,12 @@ docker run --rm \
   -v "$(pwd)/certbot/www:/var/www/certbot" \
   certbot/certbot certonly --webroot \
   -w /var/www/certbot \
-  -d horo.lokeshmani.com \
+  -d destiny.lokeshmani.com \
   --email amlokesheit@gmail.com \
   --agree-tos --no-eff-email
 ```
 
-Success looks like: `Successfully received certificate ... /etc/letsencrypt/live/horo.lokeshmani.com/fullchain.pem`.
+Success looks like: `Successfully received certificate ... /etc/letsencrypt/live/destiny.lokeshmani.com/fullchain.pem`.
 
 ---
 
@@ -159,7 +159,7 @@ renewals). Then reload Nginx:
 docker compose restart nginx
 ```
 
-Visit **https://horo.lokeshmani.com** — you should see the LOKI HORO welcome
+Visit **https://destiny.lokeshmani.com** — you should see the LOKI HORO welcome
 screen with a valid padlock.
 
 **Log in as admin:** `amlokesheit@gmail.com` + the `ADMIN_DEFAULT_PASSWORD` you
@@ -173,7 +173,7 @@ set. Change your password in-app after first login.
 2. **Create Credentials → OAuth client ID → Web application.**
 3. Under **Authorized redirect URIs**, add exactly:
    ```
-   https://horo.lokeshmani.com/api/auth/google/callback
+   https://destiny.lokeshmani.com/api/auth/google/callback
    ```
 4. Copy the **Client ID** and **Client secret** into `.env`:
    ```env
@@ -261,7 +261,7 @@ docker compose up -d     # start again
 - **app** (Node/Express) runs on port 5000 inside the Docker network. It serves
   the built React client and the `/api/*` routes, and stores everything in
   `/data/data.db` (+ `/data/sessions.db`) on the persistent volume.
-- **nginx** terminates TLS for `horo.lokeshmani.com` and proxies to `app:5000`,
+- **nginx** terminates TLS for `destiny.lokeshmani.com` and proxies to `app:5000`,
   forwarding `X-Forwarded-Proto: https` so the secure `__Host-` session cookie
   is honored.
 - Secrets (session secret, admin password, Google creds) come only from `.env`
@@ -272,12 +272,12 @@ docker compose up -d     # start again
 ## Troubleshooting
 
 - **Nginx won't start after uncommenting HTTPS** → the cert isn't there. Re-run
-  Step 5; confirm `certbot/conf/live/horo.lokeshmani.com/fullchain.pem` exists.
+  Step 5; confirm `certbot/conf/live/destiny.lokeshmani.com/fullchain.pem` exists.
 - **Can log in but get logged out immediately** → you're on `http://`, not
   `https://`. The session cookie is Secure-only. Use the HTTPS URL.
 - **Google button doesn't appear** → both `GOOGLE_CLIENT_ID` and
   `GOOGLE_CLIENT_SECRET` must be set, then `docker compose up -d` to reload.
 - **`redirect_uri_mismatch` from Google** → the URI in Google Cloud must be
-  exactly `https://horo.lokeshmani.com/api/auth/google/callback`.
+  exactly `https://destiny.lokeshmani.com/api/auth/google/callback`.
 - **Port 80/443 already in use** → another web server (e.g. host Nginx/Apache)
   is running. Stop it, or change the published ports in `docker-compose.yml`.
