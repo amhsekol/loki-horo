@@ -770,4 +770,23 @@ export const UI: Record<string, Bilingual> = {
   gurujiMatchedSubtitle: { ta: "ஆதித்யா குருஜியின் விதிகளில் இந்த ஜாதகத்தில் செயல்படுபவை.", en: "Guruji's principles that are active in this chart.", hi: "इस कुंडली में सक्रिय गुरुजी के सिद्धांत।" },
   gurujiRefTitle: { ta: "முழு விதி தொகுப்பு", en: "Full rule reference", hi: "पूर्ण नियम संदर्भ" },
   gurujiMatchedNone: { ta: "சிறப்பாக பொருந்திய விதிகள் இல்லை.", en: "No specifically matched rules.", hi: "कोई विशेष मिलान नियम नहीं।" },
+
+  // Guruji tab — prediction algorithm section
+  predTitle: { ta: "கணிப்புகள் (ஆதித்யா குருஜி முறை)", en: "Predictions (Aditya Guruji method)", hi: "भविष्यवाणी (आदित्य गुरुजी विधि)" },
+  predSubtitle: { ta: "படிப்படியான முறை: ஜாதக வாக்குறுதி → இயங்கும் தசா-புக்தி-அந்தரம் → கோசாரம் → சிறப்பு வடிகட்டிகள் → முடிவு. ஜாதகம் தூண்டும் விதிகள் மட்டுமே காட்டப்படுகின்றன.", en: "Step-by-step: natal promise → running dasa-bhukthi-antara → transit → special filters → result. Only rules the chart actually activates are shown.", hi: "चरणबद्ध: जन्म-वचन → चालू दशा-भुक्ति-अंतर → गोचर → विशेष फ़िल्टर → परिणाम। केवल कुंडली द्वारा सक्रिय नियम दिखाए जाते हैं।" },
+  predFoundation: { ta: "ஜாதக அடித்தளம் — பலன் பெறும் திறன்", en: "Chart foundation — capacity to receive results", hi: "कुंडली आधार — फल पाने की क्षमता" },
+  predNatal: { ta: "ஜாதக வாக்குறுதி", en: "Natal promise", hi: "जन्म-वचन" },
+  predActive: { ta: "இயங்கும் காலம்", en: "Active period", hi: "चालू काल" },
+  predTransit: { ta: "கோசார உறுதி", en: "Transit confirmation", hi: "गोचर पुष्टि" },
+  predSpecial: { ta: "சிறப்பு விதிகள்", en: "Special rules", hi: "विशेष नियम" },
+  predFinal: { ta: "இறுதி முடிவு", en: "Final result", hi: "अंतिम परिणाम" },
+  predCaution: { ta: "கவனம்", en: "Caution", hi: "सावधानी" },
+  predConfidence: { ta: "நம்பகத்தன்மை", en: "Confidence", hi: "विश्वास" },
+  predNone: { ta: "இந்தப் பிரிவில் தூண்டப்பட்ட விதிகள் இல்லை.", en: "No rules activated for this section.", hi: "इस अनुभाग हेतु कोई नियम सक्रिय नहीं।" },
+  confStrong: { ta: "பலமான", en: "Strong", hi: "प्रबल" },
+  confModerate: { ta: "மிதமான", en: "Moderate", hi: "मध्यम" },
+  confWeak: { ta: "பலவீனமான", en: "Weak", hi: "कमजोर" },
+  confDelayed: { ta: "தாமதம்", en: "Delayed", hi: "विलंबित" },
+  confDenied: { ta: "மறுக்கப்பட்ட/மிகக் குறைவு", en: "Denied/limited", hi: "अस्वीकृत/सीमित" },
+  confConditional: { ta: "நிபந்தனை", en: "Conditional", hi: "सशर्त" },
 };

@@ -25,6 +25,7 @@ import { analyzeGuruji, type GurujiAnalysis } from "./guruji-analysis";
 import { analyzePersona, type PersonaAnalysis } from "./persona-analysis";
 import { analyzeRiseFall, type RiseFallResult } from "./rise-fall-analysis";
 import { analyzeDashaTransit, type DashaTransitResult } from "./dasha-transit-analysis";
+import { computePredictions, type PredictionReport, type RunningLord, type PredTone } from "./guruji-predict";
 
 const DEG = 360;
 const NAK_SPAN = DEG / 27; // 13.333...
@@ -182,6 +183,7 @@ export interface ChartResult {
   personaAnalysis: PersonaAnalysis;
   riseFall: RiseFallResult;
   dashaTransit: DashaTransitResult;
+  prediction: PredictionReport;
 }
 
 const BODY_MAP: { idx: number; body: Astronomy.Body }[] = [
@@ -321,6 +323,32 @@ export function computeChart(input: {
     planets, lagnaRasi, dasha, transitPositions, nowDate,
   );
 
+  // ---- Aditya Guruji step-by-step prediction engine ------------------------
+  // Build the running dasa lords (maha/bhukti/antara) as the minimal RunningLord
+  // shape the prediction engine consumes, and derive the transit tone from the
+  // Jupiter–Saturn double-transit finding (map "info" → "mixed").
+  const runningLords: RunningLord[] = ([
+    dashaTransit.running.maha,
+    dashaTransit.running.bhukti,
+    dashaTransit.running.antara,
+  ].filter(Boolean) as NonNullable<DashaTransitResult["running"]["maha"]>[]).map((r) => ({
+    level: r.level,
+    lordIndex: r.lordIndex,
+    natalHouse: r.natalHouse,
+    natalDignity: r.natalDignity,
+  }));
+  const dtTone = dashaTransit.doubleTransit.finding.tone;
+  const saturnPhaseTone: PredTone =
+    dtTone === "good" ? "good" : dtTone === "caution" ? "caution" : "mixed";
+  const prediction = computePredictions({
+    planets,
+    lagnaSign: lagnaRasi,
+    moonSign: planets[1].rasiIndex,
+    guruji: gurujiAnalysis,
+    running: runningLords,
+    saturnPhaseTone,
+  });
+
   return {
     meta: {
       date: input.date, time: input.time,
@@ -346,6 +374,7 @@ export function computeChart(input: {
     personaAnalysis,
     riseFall,
     dashaTransit,
+    prediction,
   };
 }
 

@@ -4,9 +4,19 @@ import { useLang } from "@/lib/lang";
 import { UI, type Bilingual } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
 import { matchRules, type ValuBand, type MatchableRule } from "@shared/astro/guruji-analysis";
+import type {
+  PredictionReport,
+  TopicPrediction,
+  PredLine,
+  PredTone,
+  Confidence,
+} from "@shared/astro/guruji-predict";
 import type { Rule } from "@shared/schema";
 import { Card } from "@/components/ui/card";
-import { Sun, BarChart3, Sparkles, BookMarked, ChevronDown, Library } from "lucide-react";
+import {
+  Sun, BarChart3, Sparkles, BookMarked, ChevronDown, Library, Compass,
+  Heart, Briefcase, GraduationCap, Coins, Users, HeartPulse,
+} from "lucide-react";
 import { toneStyle } from "./KNRaoTab";
 import { RULE_CATEGORIES, categoryLabel, ruleTitle, ruleBody, planetName } from "@/lib/rules";
 
@@ -43,6 +53,8 @@ export function GurujiTab({ chart }: Props) {
 
   return (
     <div className="space-y-6" data-testid="guruji-tab">
+      <GurujiPredictionsSection prediction={chart.prediction} />
+
       <GurujiRulesSection chart={chart} />
 
       <div>
@@ -202,6 +214,168 @@ export function GurujiTab({ chart }: Props) {
           })}
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Predictions section: runs the Aditya Guruji step-by-step prediction engine
+// (already computed inside ChartResult.prediction) and renders per-topic cards
+// in the document's output format: Natal promise · Active period · Transit ·
+// Special rules · Final result · Caution. Every line is chart-grounded.
+// ---------------------------------------------------------------------------
+
+// lucide icon name (from the engine's ModuleSpec) → component.
+const PRED_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Heart, Briefcase, GraduationCap, Coins, Users, HeartPulse,
+};
+
+// Confidence → colour chip + label. Reuses the tone palette semantics.
+function confStyle(c: Confidence): { chip: string; labelKey: Bilingual } {
+  switch (c) {
+    case "strong":
+      return { chip: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", labelKey: UI.confStrong };
+    case "moderate":
+      return { chip: "bg-sky-500/12 text-sky-600 dark:text-sky-400", labelKey: UI.confModerate };
+    case "delayed":
+      return { chip: "bg-amber-500/12 text-amber-600 dark:text-amber-400", labelKey: UI.confDelayed };
+    case "conditional":
+      return { chip: "bg-amber-500/12 text-amber-600 dark:text-amber-400", labelKey: UI.confConditional };
+    case "weak":
+      return { chip: "bg-orange-500/12 text-orange-600 dark:text-orange-400", labelKey: UI.confWeak };
+    case "denied":
+      return { chip: "bg-destructive/12 text-destructive", labelKey: UI.confDenied };
+  }
+}
+
+// One labelled block of grounded lines (Natal promise / Active period / etc.).
+function PredBlock({ label, lines }: { label: Bilingual; lines: PredLine[] }) {
+  const { t } = useLang();
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {t(label)}
+      </div>
+      {lines.length === 0 ? (
+        <p className="text-xs text-muted-foreground/70">{t(UI.predNone)}</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {lines.map((ln, i) => {
+            const ts = toneStyle(ln.tone ?? "info");
+            return (
+              <li key={i} className="flex items-start gap-2">
+                <span className={`mt-0.5 shrink-0 ${ts.chip.split(" ").filter((c) => c.startsWith("text-")).join(" ")}`}>
+                  {ts.icon}
+                </span>
+                <span className="text-sm leading-snug text-foreground/90 break-words min-w-0">
+                  {t(ln.text)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TopicCard({ topic }: { topic: TopicPrediction }) {
+  const { t } = useLang();
+  const Icon = PRED_ICONS[topic.icon] ?? Sparkles;
+  const ts = toneStyle(topic.tone);
+  const cs = confStyle(topic.confidence);
+  return (
+    <Card
+      className={`p-4 border ${ts.border}`}
+      data-testid={`card-pred-${topic.key}`}
+    >
+      {/* Header: topic + confidence badge */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 font-medium">
+          <Icon className="h-4 w-4 text-primary" />
+          <span data-testid={`text-pred-title-${topic.key}`}>{t(topic.title)}</span>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cs.chip}`}
+          data-testid={`badge-pred-conf-${topic.key}`}
+        >
+          {t(UI.predConfidence)}: {t(cs.labelKey)}
+        </span>
+      </div>
+
+      {/* Final result banner */}
+      <div className={`mt-3 rounded-lg border px-3 py-2.5 ${ts.chip}`}>
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 shrink-0">{ts.icon}</span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
+              {t(UI.predFinal)}
+            </div>
+            <p className="text-sm font-medium leading-snug break-words" data-testid={`text-pred-final-${topic.key}`}>
+              {t(topic.finalResult)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed blocks */}
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <PredBlock label={UI.predNatal} lines={topic.natalPromise} />
+        <PredBlock label={UI.predActive} lines={topic.activePeriod} />
+        <PredBlock label={UI.predTransit} lines={topic.transit} />
+        <PredBlock label={UI.predSpecial} lines={topic.specialRules} />
+      </div>
+
+      {/* Caution (sensitive topics) */}
+      {topic.caution && (
+        <div
+          className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+          data-testid={`text-pred-caution-${topic.key}`}
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            {t(UI.predCaution)}
+          </div>
+          <p className="text-xs leading-snug text-foreground/80 mt-0.5 break-words">{t(topic.caution)}</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function GurujiPredictionsSection({ prediction }: { prediction: PredictionReport }) {
+  const { t } = useLang();
+  const found = prediction.foundation;
+  return (
+    <div className="space-y-4" data-testid="guruji-predictions">
+      <div>
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <Compass className="h-5 w-5 text-primary" />
+          {t(UI.predTitle)}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">{t(UI.predSubtitle)}</p>
+      </div>
+
+      {/* Chart foundation */}
+      <Card className="p-4 border-primary/30" data-testid="card-pred-foundation">
+        <div className="flex items-center gap-2 font-medium">
+          <Sparkles className="h-4 w-4 text-primary" /> {t(UI.predFoundation)}
+        </div>
+        <div className="mt-3">
+          <PredBlock label={UI.predNatal} lines={found.lines} />
+        </div>
+      </Card>
+
+      {/* Per-topic prediction cards */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {prediction.topics.map((topic) => (
+          <TopicCard key={topic.key} topic={topic} />
+        ))}
+      </div>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-muted-foreground leading-snug" data-testid="text-pred-disclaimer">
+        {t(prediction.disclaimer)}
+      </p>
     </div>
   );
 }
