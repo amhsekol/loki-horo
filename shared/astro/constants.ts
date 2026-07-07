@@ -716,4 +716,20 @@ export const UI: Record<string, Bilingual> = {
   dtDispMixed: { ta: "கலப்பு", en: "Mixed", hi: "मिश्रित" },
   dtShowEarlier: { ta: "முந்தைய காலம் காட்டு (1900–1990)", en: "Show earlier periods (1900–1990)", hi: "पुरानी अवधि दिखाएँ (1900–1990)" },
   dtHideEarlier: { ta: "முந்தைய காலம் மறை", en: "Hide earlier periods", hi: "पुरानी अवधि छिपाएँ" },
+  // Probability / life-events / wealth section labels
+  dtProbability: { ta: "நிகழ்தகவு", en: "Probability", hi: "संभावना" },
+  dtLifeAreas: { ta: "முக்கிய வாழ்க்கைத் துறைகள்", en: "Key life areas", hi: "मुख्य जीवन क्षेत्र" },
+  dtLifeEvents: { ta: "முக்கிய வாழ்க்கை நிகழ்வுகள்", en: "Important life events", hi: "महत्वपूर्ण जीवन घटनाएँ" },
+  dtWealthWindow: { ta: "பண வரவு / செலவு காலம்", en: "Money-making vs loss window", hi: "धन-लाभ / हानि की अवधि" },
+  // "Confirm what happened" feedback loop
+  dtFeedbackTitle: { ta: "உண்மையில் என்ன நடந்தது?", en: "What actually happened?", hi: "वास्तव में क्या हुआ?" },
+  dtFeedbackHint: { ta: "இந்தக் கடந்த காலத்தில் உண்மையில் நடந்ததைப் பதிவு செய்யுங்கள் — கணிப்பு எவ்வளவு சரியாக இருந்தது என்பதை ஒப்பிட.", en: "Log what really happened in this past period so we can compare it against the prediction.", hi: "इस बीती अवधि में जो वास्तव में हुआ उसे दर्ज करें ताकि हम भविष्यवाणी से मिलान कर सकें।" },
+  dtRatingMatched: { ta: "பொருந்தியது", en: "Matched", hi: "मिला" },
+  dtRatingPartial: { ta: "பகுதியளவு", en: "Partly", hi: "आंशिक" },
+  dtRatingMissed: { ta: "பொருந்தவில்லை", en: "Missed", hi: "नहीं मिला" },
+  dtOutcomePlaceholder: { ta: "எ.கா: இந்தக் காலத்தில் வேலை மாற்றம் / திருமணம் / பண இழப்பு நடந்தது...", en: "e.g. changed jobs / got married / had a financial loss in this period...", hi: "जैसे: इस अवधि में नौकरी बदली / विवाह / धन-हानि हुई..." },
+  dtSaveOutcome: { ta: "பதிவு செய்", en: "Save outcome", hi: "परिणाम सहेजें" },
+  dtRecorded: { ta: "பதிவு செய்யப்பட்டது", en: "Recorded", hi: "दर्ज किया गया" },
+  dtRecordThis: { ta: "நடந்ததைப் பதிவு செய்", en: "Record what happened", hi: "जो हुआ उसे दर्ज करें" },
+  dtNeedSaveChart: { ta: "பலன்களைப் பதிவு செய்ய முதலில் ஜாதகத்தைச் சேமிக்கவும்.", en: "Save the chart first to record outcomes.", hi: "परिणाम दर्ज करने के लिए पहले कुंडली सहेजें।" },
 };

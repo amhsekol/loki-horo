@@ -109,10 +109,26 @@ function specialPlacementRule(
 
 // ---------------------------------------------------------------------------
 // PARIVARTANA (mutual sign exchange) — e.g. Sani in a Guru sign while Guru is
-// in a Sani sign. The two planets trade lordships and BOTH gain great strength
-// (parivartana yoga). Classically the exchange "ripens" — its full result shows
-// in the SECOND HALF of that planet's dasha. We detect it generically for any
-// pair so a planet that looks debilitated/weak by plain dignity is lifted.
+// in a Sani sign. Classical texts (Saravali, Phaladeepika) treat the exchange
+// like a CONJUNCTION of the two planets and split it into THREE types by the
+// houses the two planets OWN (from the lagna):
+//
+//   • MAHA (great)   — both lords own only auspicious houses (kendra 1/4/7/10,
+//                       trikona 1/5/9, or 11). A mutual Raja-yoga: BOTH planets
+//                       and both houses are strongly boosted.
+//   • KAHALA         — one lord owns the 3rd house (no dusthana involved).
+//                       Energises effort but fortunes fluctuate (mixed).
+//   • DAINYA (misery)— one lord owns a dusthana (6/8/12). The dusthana lord is
+//                       LIFTED (it borrows the other's strength) but the OTHER
+//                       planet is DAMAGED. Asymmetric — not a blanket boost.
+//
+// The exchange amplifies whatever the planets/houses signify (good or bad), and
+// classically its full result ripens in the SECOND HALF of that planet's dasha.
+
+type ParivartanaType = "maha" | "kahala" | "dainya";
+
+const DUSTHANAS = [6, 8, 12];
+const KENDRA_TRIKONA = [1, 4, 5, 7, 9, 10, 11]; // auspicious (11 = labha)
 
 // Return the partner planet index if `planetIndex` is in a mutual sign exchange,
 // else null. A planet in sign S has dispositor D = RASI_LORDS[S]; if D sits in a
@@ -132,6 +148,56 @@ function parivartanaPartner(
   return null;
 }
 
+// Classify a parivartana pair by the houses each planet OWNS from the lagna.
+// Sun/Moon own one house; others own two; nodes own none (excluded upstream).
+function parivartanaType(
+  planetIndex: number,
+  partnerIndex: number,
+  lagnaSign: number,
+): ParivartanaType {
+  const owned = [
+    ...ownedHouses(planetIndex, lagnaSign),
+    ...ownedHouses(partnerIndex, lagnaSign),
+  ];
+  // Dainya dominates: any dusthana lordship in the pair.
+  if (owned.some((h) => DUSTHANAS.includes(h))) return "dainya";
+  // Kahala: 3rd-house lordship involved (and no dusthana).
+  if (owned.includes(3)) return "kahala";
+  // Maha: everything owned is auspicious.
+  if (owned.every((h) => KENDRA_TRIKONA.includes(h))) return "maha";
+  // Fallback (e.g. only 2nd/12th-free neutral houses) — treat as kahala/mixed.
+  return "kahala";
+}
+
+// Given the type, decide THIS planet's disposition + strength floor and whether
+// it is the beneficiary or the damaged party (relevant only for Dainya).
+function parivartanaEffect(
+  planetIndex: number,
+  partnerIndex: number,
+  lagnaSign: number,
+  basePoints: number,
+): { type: ParivartanaType; disp: Disposition; points: number; damaged: boolean } {
+  const type = parivartanaType(planetIndex, partnerIndex, lagnaSign);
+  if (type === "maha") {
+    // Both planets strongly lifted.
+    return { type, disp: "subha", points: Math.max(basePoints, 78), damaged: false };
+  }
+  if (type === "kahala") {
+    // Energised but fluctuating — nudge toward mixed, mild floor.
+    return { type, disp: "mixed", points: Math.max(basePoints, 50), damaged: false };
+  }
+  // DAINYA: the planet that OWNS the dusthana is the beneficiary (lifted);
+  // the other planet is damaged (its result is dragged down).
+  const myHouses = ownedHouses(planetIndex, lagnaSign);
+  const iOwnDusthana = myHouses.some((h) => DUSTHANAS.includes(h));
+  if (iOwnDusthana) {
+    // Beneficiary dusthana lord — lifted to subha but modest floor.
+    return { type, disp: "subha", points: Math.max(basePoints, 65), damaged: false };
+  }
+  // Damaged partner — pull disposition to papa, cap strength low.
+  return { type, disp: "papa", points: Math.min(basePoints, 30), damaged: true };
+}
+
 // Natal disposition + strength for a planet, applying any special lagna rule
 // AND parivartana on top of the plain dignity reading. This is the single
 // source of truth for "how good is this planet natally" so pillars, clauses
@@ -148,32 +214,85 @@ function natalDispWithRules(
   points: number;
   special: SpecialPlacementRule | null;
   parivartanaWith: number | null;
+  parivartanaType: ParivartanaType | null;
+  parivartanaDamaged: boolean;
 } {
   const special = specialPlacementRule(lagnaSign, planetIndex, natalHouse);
-  if (special) return { disp: special.disp, points: special.points, special, parivartanaWith: null };
+  if (special)
+    return {
+      disp: special.disp,
+      points: special.points,
+      special,
+      parivartanaWith: null,
+      parivartanaType: null,
+      parivartanaDamaged: false,
+    };
 
   const base = dignityDisposition(dig);
 
-  // Parivartana lift: a mutual exchange makes both planets effectively strong.
-  // Raise a weak/mixed planet to subha and floor its strength at 70 (the pair
-  // reaches "ultimate power", classically ripening in the dasha's second half).
+  // Parivartana — apply the correct classical type (Maha / Kahala / Dainya).
   const partner = natalPlanets ? parivartanaPartner(planetIndex, natalPlanets) : null;
   if (partner !== null) {
-    const points = Math.max(base.points, 70);
-    return { disp: "subha", points, special: null, parivartanaWith: partner };
+    const eff = parivartanaEffect(planetIndex, partner, lagnaSign, base.points);
+    return {
+      disp: eff.disp,
+      points: eff.points,
+      special: null,
+      parivartanaWith: partner,
+      parivartanaType: eff.type,
+      parivartanaDamaged: eff.damaged,
+    };
   }
 
-  return { disp: base.disp, points: base.points, special: null, parivartanaWith: null };
+  return {
+    disp: base.disp,
+    points: base.points,
+    special: null,
+    parivartanaWith: null,
+    parivartanaType: null,
+    parivartanaDamaged: false,
+  };
 }
 
-// Short note describing a parivartana pairing (with the second-half ripening).
-function parivartanaNote(planetIndex: number, partnerIndex: number): Bilingual {
+// Type-specific note describing a parivartana pairing (with second-half ripening).
+function parivartanaNote(
+  planetIndex: number,
+  partnerIndex: number,
+  type: ParivartanaType,
+  damaged: boolean,
+): Bilingual {
   const a = GRAHAS[planetIndex];
   const b = GRAHAS[partnerIndex];
+  const pair = `${a.en}–${b.en}`;
+  const pairTa = `${a.ta}–${b.ta}`;
+  const pairHi = `${a.hi ?? a.en}–${b.hi ?? b.en}`;
+
+  if (type === "maha") {
+    return {
+      ta: `மகா பரிவர்த்தனை: ${pairTa} இட மாற்றம் (கேந்திர/திரிகோண அதிபதிகள்) — இரண்டும் மிகுந்த பலம்; ராஜயோக பலன், தசையின் இரண்டாம் பாதியில் முழுமையாக வெளிப்படும்.`,
+      en: `Maha parivartana: ${pair} exchange (kendra/trikona lords) — both greatly strengthened, a Raja-yoga link; full result ripens in the SECOND HALF of the dasha.`,
+      hi: `महा परिवर्तन: ${pairHi} विनिमय (केन्द्र/त्रिकोण स्वामी) — दोनों अत्यंत बलवान, राजयोग; पूर्ण फल दशा के उत्तरार्ध में।`,
+    };
+  }
+  if (type === "kahala") {
+    return {
+      ta: `ககல பரிவர்த்தனை: ${pairTa} இட மாற்றம் — முயற்சிகளை தூண்டும், ஆனால் பலன் ஏற்றஇறக்கமாக (கலப்பு); தசையின் இரண்டாம் பாதியில் முழுமை.`,
+      en: `Kahala parivartana: ${pair} exchange — energises effort and drive, but fortunes fluctuate (mixed); full result ripens in the SECOND HALF of the dasha.`,
+      hi: `कहल परिवर्तन: ${pairHi} विनिमय — प्रयास बढ़ता है पर भाग्य में उतार-चढाव (मिश्रित); पूर्ण फल दशा के उत्तरार्ध में।`,
+    };
+  }
+  // Dainya — asymmetric.
+  if (damaged) {
+    return {
+      ta: `தைன்ய பரிவர்த்தனை: ${pairTa} இட மாற்றம் (டுஷ்டான அதிபதி எதிர்) — இந்த கிரகம் பாதிக்கப்படுகிறது; பலன் குறையும்.`,
+      en: `Dainya parivartana: ${pair} exchange with a dusthana (6/8/12) lord — THIS planet is the damaged party; its results are weakened even though the exchange energises the dusthana lord.`,
+      hi: `दैन्य परिवर्तन: ${pairHi} विनिमय (दुष्थान स्वामी से) — यह ग्रह क्षतिग्रस्त है, फल कमजोर।`,
+    };
+  }
   return {
-    ta: `பரிவர்த்தனை: ${a.ta}–${b.ta} இட மாற்றம் — இரண்டும் பலம் பெறுகின்றன; தசையின் இரண்டாம் பாதியில் முழுப் பலன் வெளிப்படும்.`,
-    en: `Parivartana: ${a.en}–${b.en} exchange signs — both gain great strength; the full result ripens in the SECOND HALF of the dasha.`,
-    hi: `परिवर्तन: ${a.hi ?? a.en}–${b.hi ?? b.en} राशि विनिमय — दोनों अत्यंत बलवान; पूर्ण फल दशा के उत्तरार्ध में परिपक्व होता है।`,
+    ta: `தைன்ய பரிவர்த்தனை: ${pairTa} இட மாற்றம் (இந்த கிரகம் டுஷ்டான அதிபதி) — இது பலப்படுத்தப்படுகிறது; எனினும் மற்ற கிரகம் பாதிக்கப்படும்; தசையின் இரண்டாம் பாதியில் முழுமை.`,
+    en: `Dainya parivartana: ${pair} exchange — this dusthana (6/8/12) lord is lifted by the exchange, but the OTHER planet is damaged; net result is mixed, ripening in the SECOND HALF of the dasha.`,
+    hi: `दैन्य परिवर्तन: ${pairHi} विनिमय — यह दुष्थान स्वामी बल पाता है, पर दूसरा ग्रह क्षतिग्रस्त; पूर्ण फल दशा के उत्तरार्ध में।`,
   };
 }
 
@@ -397,6 +516,14 @@ export interface TimelinePeriod {
   // Per-lord classical breakdown (maha / bhukti / [antara] + Sani–Guru), each a
   // full sentence: what the lord owns, where it sits natally, how it transits.
   clauses: Bilingual[];
+  // Probabilistic layer: confidence the period is net-favourable, concrete
+  // life-area calls, and any flagged significant life events with likelihood.
+  probability: Probability;
+  lifeAreaCalls: Bilingual[];
+  lifeEvents: LifeEvent[];
+  // Money timing: is this stretch a net gain window or a loss/expense window,
+  // plus how long it lasts (its own duration from start→end).
+  wealthTiming: WealthWindow;
 }
 
 // Score a lord for a given moment: natal disposition + its transit disposition
@@ -496,7 +623,7 @@ function lordClause(
   const ownedTa = owned.length ? `${owned.map(ordTa).join(", ")} அதிபதி` : "சாயா கிரகம் (அதிபத்தியம் இல்லை)";
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
 
-  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith) : null;
+  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith, ruled.parivartanaType!, ruled.parivartanaDamaged) : null;
   const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
   const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
   const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
@@ -544,6 +671,350 @@ function periodHeadline(disp: Disposition, area: Bilingual): Bilingual {
     ta: `கலப்புக் காலம் — ${area.ta} தொடர்பாக ஏற்ற இறக்கம்.`,
     en: `Mixed window — ups and downs around ${area.en}.`,
     hi: `मिश्रित अवधि — ${area.hi ?? area.en} में उतार-चढ़ाव।`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PROBABILISTIC READING — the user wants predictions that are "more real, facts
+// based on probabilities, straight, and confirm what happened". So instead of
+// only a soft subha/papa word, each period carries a CONFIDENCE % and a plain
+// likelihood band, plus concrete life-area calls and flagged life events.
+// ---------------------------------------------------------------------------
+
+export type ProbBand = "very-likely" | "likely" | "even" | "unlikely" | "very-unlikely";
+
+export interface Probability {
+  percent: number;         // 0..100 confidence that the period is net-favourable
+  band: ProbBand;
+  label: Bilingual;        // e.g. "Likely favourable (72%)"
+}
+
+// Map a raw period score to a favourability probability. `maxAbs` is the
+// theoretical maximum magnitude of the score (3 per lord × number of lords).
+// A logistic-ish squash keeps mid scores honest (near 50%) and pushes the
+// extremes toward high confidence without ever claiming certainty.
+function probabilityFromScore(score: number, maxAbs: number): Probability {
+  const norm = Math.max(-1, Math.min(1, score / maxAbs)); // -1..1
+  // 50% at norm 0, ~92% at norm 1, ~8% at norm -1.
+  const percent = Math.round(50 + norm * 42);
+  let band: ProbBand;
+  if (percent >= 75) band = "very-likely";
+  else if (percent >= 60) band = "likely";
+  else if (percent > 40) band = "even";
+  else if (percent > 25) band = "unlikely";
+  else band = "very-unlikely";
+  const bandWord: Record<ProbBand, Bilingual> = {
+    "very-likely": { ta: "மிக சாதகம்", en: "very likely favourable", hi: "अत्यंत संभावित अनुकूल" },
+    "likely": { ta: "சாதகமாக இருக்கலாம்", en: "likely favourable", hi: "संभावित अनुकूल" },
+    "even": { ta: "ஏற்ற இறக்கம் (சமநிலை)", en: "balanced / uncertain", hi: "संतुलित / अनिश्चित" },
+    "unlikely": { ta: "சவால் சாத்தியம்", en: "challenges likely", hi: "बाधाएँ संभावित" },
+    "very-unlikely": { ta: "மிகுந்த கவனம் தேவை", en: "strong caution", hi: "अत्यंत सतर्कता" },
+  };
+  const w = bandWord[band];
+  const favPct = band === "unlikely" || band === "very-unlikely" ? 100 - percent : percent;
+  return {
+    percent,
+    band,
+    label: {
+      ta: `${w.ta} — ${favPct}% நம்பிக்கை`,
+      en: `${w.en} — ${favPct}% confidence`,
+      hi: `${w.hi ?? w.en} — ${favPct}% विश्वास`,
+    },
+  };
+}
+
+// Concrete, direct life-area calls for a period: for each house the active lords
+// touch, state plainly whether that area advances or is strained. "Straight"
+// language as requested — no hedging beyond the probability band above.
+function lifeAreaCalls(
+  lordIndices: number[],
+  disp: Disposition,
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+): Bilingual[] {
+  const AREA: Record<number, Bilingual> = {
+    1: { ta: "உடல்நலம்/சுயம்", en: "Health & self", hi: "स्वास्थ्य व स्वयं" },
+    2: { ta: "பணம்/குடும்பம்", en: "Money & family", hi: "धन व परिवार" },
+    3: { ta: "முயற்சி/தைரியம்", en: "Effort & courage", hi: "प्रयास व साहस" },
+    4: { ta: "வீடு/வாகனம்/மனநிம்மதி", en: "Home, property & peace of mind", hi: "घर, संपत्ति व मन:शांति" },
+    5: { ta: "கல்வி/குழந்தை/படைப்பு", en: "Education, children & creativity", hi: "शिक्षा, संतान व सृजन" },
+    6: { ta: "கடன்/போட்டி/உடல்நலம்", en: "Debts, rivals & health issues", hi: "ऋण, प्रतिस्पर्धी व रोग" },
+    7: { ta: "திருமணம்/கூட்டு", en: "Marriage & partnerships", hi: "विवाह व साझेदारी" },
+    8: { ta: "திடீர் மாற்றம்/ஆயுள்", en: "Sudden change & longevity", hi: "अचानक परिवर्तन व आयु" },
+    9: { ta: "அதிர்ஷ்டம்/பயணம்/தர்மம்", en: "Fortune, travel & dharma", hi: "भाग्य, यात्रा व धर्म" },
+    10: { ta: "தொழில்/பதவி", en: "Career & status", hi: "करियर व पद" },
+    11: { ta: "வருமானம்/ஆதாயம்", en: "Income & gains", hi: "आय व लाभ" },
+    12: { ta: "செலவு/வெளிநாடு/விடுதலை", en: "Expenses, foreign & letting go", hi: "व्यय, विदेश व मुक्ति" },
+  };
+  const verb = (d: Disposition): Bilingual =>
+    d === "subha"
+      ? { ta: "முன்னேற்றம் சாத்தியம்", en: "gains likely", hi: "लाभ संभावित" }
+      : d === "papa"
+      ? { ta: "இடர்ப்பாடு/தாமதம்", en: "strain or delay", hi: "बाधा या विलंब" }
+      : { ta: "ஏற்ற இறக்கம்", en: "mixed movement", hi: "मिश्रित गति" };
+  const houses = new Set<number>();
+  for (const idx of lordIndices) {
+    const natal = natalPlanets.find((p) => p.index === idx);
+    if (natal) houses.add(houseFrom(natal.rasiIndex, lagnaSign));
+    for (const h of ownedHouses(idx, lagnaSign)) houses.add(h);
+  }
+  const v = verb(disp);
+  return Array.from(houses)
+    .sort((a, b) => a - b)
+    .slice(0, 4)
+    .map((h) => {
+      const a = AREA[h];
+      return {
+        ta: `${a.ta}: ${v.ta}`,
+        en: `${a.en}: ${v.en}`,
+        hi: `${a.hi ?? a.en}: ${v.hi ?? v.en}`,
+      };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// LIFE EVENTS — flag when a classically significant life event could occur in a
+// period, with a likelihood. Triggered when the active dasha/bhukti lords own
+// or occupy the karaka house AND the natural karaka planet is among the lords.
+// House-lord activation is the classical timing rule ("the lord of a bhava,
+// during its dasha/bhukti, gives that bhava's result").
+// For childbirth we also estimate a probable count and gender from the 5th
+// house (putra bhava) using classical significators — see childForecast().
+// ---------------------------------------------------------------------------
+
+export interface LifeEvent {
+  key: string;             // stable id e.g. "marriage"
+  label: Bilingual;
+  likelihood: ProbBand;
+  note: Bilingual;
+  detail?: Bilingual;      // extra specifics, e.g. child count/gender
+}
+
+interface EventRule {
+  key: string;
+  label: Bilingual;
+  houses: number[];        // bhavas whose activation signals this event
+  karakas: number[];       // natural significator planets that strengthen it
+}
+
+const EVENT_RULES: EventRule[] = [
+  { key: "marriage", label: { ta: "திருமணம்/உறவு", en: "Marriage / relationship", hi: "विवाह / संबंध" }, houses: [7], karakas: [5] },       // Venus
+  { key: "career", label: { ta: "தொழில் மாற்றம்/பதவி உயர்வு", en: "Career change / promotion", hi: "करियर परिवर्तन / पदोन्नति" }, houses: [10, 6], karakas: [0, 6] }, // Sun, Saturn
+  { key: "childbirth", label: { ta: "குழந்தை பாக்கியம்", en: "Childbirth", hi: "संतान प्राप्ति" }, houses: [5], karakas: [4] },                 // Jupiter
+  { key: "property", label: { ta: "வீடு/நிலம்/வாகனம்", en: "Property / vehicle", hi: "संपत्ति / वाहन" }, houses: [4], karakas: [2, 5] },   // Mars, Venus
+  { key: "wealth", label: { ta: "பெரிய ஆதாயம்/செல்வம்", en: "Major financial gain", hi: "बड़ा वित्तीय लाभ" }, houses: [2, 11], karakas: [4, 5] }, // Jupiter, Venus
+  { key: "foreign", label: { ta: "வெளிநாடு/நீண்ட பயணம்", en: "Foreign travel / relocation", hi: "विदेश / स्थानांतरण" }, houses: [12, 9], karakas: [6, 7] }, // Saturn, Rahu
+  { key: "health", label: { ta: "உடல்நல நிகழ்வு", en: "Health event", hi: "स्वास्थ्य घटना" }, houses: [6, 8], karakas: [6, 2] },     // Saturn, Mars
+];
+
+// Odd signs (Mesha, Mithuna, Simha, Tula, Dhanus, Kumbha = indices 0,2,4,6,8,10)
+// are male/odd; even signs are female/even. Classical child-sign rule uses the
+// 5th house sign + its lord + Jupiter to weigh male vs female.
+function childForecast(
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+): { count: Bilingual; gender: Bilingual } {
+  const fifthSign = (lagnaSign + 4) % 12;
+  const fifthLord = RASI_LORDS[fifthSign];
+  const jup = natalPlanets.find((p) => p.index === 4); // Guru
+  // Count: benefics (Guru, Sukra, Budha, Chandra) aspecting/occupying 5th add;
+  // malefics (Sani, Sevvai, Rahu, Ketu, Surya) in 5th reduce. Simplified count.
+  const fifthOccupants = natalPlanets.filter(
+    (p) => houseFrom(p.rasiIndex, lagnaSign) === 5,
+  );
+  const benefics = new Set([1, 3, 4, 5]);
+  const malefics = new Set([0, 2, 6, 7, 8]);
+  let score = 2; // baseline expectation of ~2 children
+  for (const p of fifthOccupants) {
+    if (benefics.has(p.index)) score += 1;
+    if (malefics.has(p.index)) score -= 1;
+  }
+  // Jupiter (santana karaka) in a kendra/trikona from lagna boosts fertility.
+  if (jup) {
+    const jh = houseFrom(jup.rasiIndex, lagnaSign);
+    if ([1, 4, 5, 7, 9, 10].includes(jh)) score += 1;
+  }
+  const n = Math.max(0, Math.min(4, score));
+  const countLabel: Bilingual =
+    n === 0
+      ? { ta: "குழந்தை பாக்கியம் தாமதம்/சவால்", en: "children delayed or challenged", hi: "संतान में विलंब/बाधा" }
+      : n === 1
+      ? { ta: "தோராயமாக 1 குழந்தை", en: "about 1 child", hi: "लगभग 1 संतान" }
+      : n >= 3
+      ? { ta: `தோராயமாக ${n} குழந்தைகள்`, en: `about ${n} children`, hi: `लगभग ${n} संतानें` }
+      : { ta: "தோராயமாக 2 குழந்தைகள்", en: "about 2 children", hi: "लगभग 2 संतानें" };
+  // Gender lean: odd 5th sign + male fifth-lord sign leans male; else female.
+  const fifthLordSign = natalPlanets.find((p) => p.index === fifthLord)?.rasiIndex ?? fifthSign;
+  const oddSign = (s: number) => s % 2 === 0; // index 0,2,4.. = odd rasi (Mesha=1st=odd)
+  const maleVotes = (oddSign(fifthSign) ? 1 : 0) + (oddSign(fifthLordSign) ? 1 : 0);
+  const genderLabel: Bilingual =
+    maleVotes >= 2
+      ? { ta: "முதல் குழந்தை ஆண் சாய்வு", en: "first child leans male", hi: "पहली संतान पुत्र की ओर" }
+      : maleVotes === 0
+      ? { ta: "முதல் குழந்தை பெண் சாய்வு", en: "first child leans female", hi: "पहली संतान पुत्री की ओर" }
+      : { ta: "ஆண்/பெண் கலப்பு சாத்தியம்", en: "mixed — could be either", hi: "पुत्र/पुत्री मिश्रित संभावना" };
+  return { count: countLabel, gender: genderLabel };
+}
+
+function lifeEvents(
+  lordIndices: number[],
+  disp: Disposition,
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+): LifeEvent[] {
+  // Houses activated by the active lords (owned or occupied).
+  const activated = new Set<number>();
+  for (const idx of lordIndices) {
+    for (const h of ownedHouses(idx, lagnaSign)) activated.add(h);
+    const natal = natalPlanets.find((p) => p.index === idx);
+    if (natal) activated.add(houseFrom(natal.rasiIndex, lagnaSign));
+  }
+  const lordSet = new Set(lordIndices);
+  const out: LifeEvent[] = [];
+  for (const rule of EVENT_RULES) {
+    const houseHit = rule.houses.some((h) => activated.has(h));
+    if (!houseHit) continue;
+    const karakaActive = rule.karakas.some((k) => lordSet.has(k));
+    // Likelihood: house activated + karaka among lords + favourable period = high.
+    let band: ProbBand;
+    if (houseHit && karakaActive && disp === "subha") band = "very-likely";
+    else if (houseHit && (karakaActive || disp === "subha")) band = "likely";
+    else if (disp === "papa") band = "unlikely";
+    else band = "even";
+    const bandWord: Record<ProbBand, Bilingual> = {
+      "very-likely": { ta: "மிக சாத்தியம்", en: "very likely", hi: "अत्यंत संभावित" },
+      "likely": { ta: "சாத்தியம்", en: "likely", hi: "संभावित" },
+      "even": { ta: "சாத்தியமுண்டு", en: "possible", hi: "संभव" },
+      "unlikely": { ta: "குறைவு", en: "less likely", hi: "कम संभावित" },
+      "very-unlikely": { ta: "மிகக் குறைவு", en: "unlikely", hi: "असंभावित" },
+    };
+    const w = bandWord[band];
+    const ev: LifeEvent = {
+      key: rule.key,
+      label: rule.label,
+      likelihood: band,
+      note: {
+        ta: `${rule.label.ta}: ${w.ta}`,
+        en: `${rule.label.en}: ${w.en}`,
+        hi: `${rule.label.hi ?? rule.label.en}: ${w.hi ?? w.en}`,
+      },
+    };
+    // For a childbirth signal, attach probable count + gender specifics.
+    if (rule.key === "childbirth") {
+      const cf = childForecast(natalPlanets, lagnaSign);
+      ev.detail = {
+        ta: `${cf.count.ta}; ${cf.gender.ta}`,
+        en: `${cf.count.en}; ${cf.gender.en}`,
+        hi: `${cf.count.hi ?? cf.count.en}; ${cf.gender.hi ?? cf.gender.en}`,
+      };
+    }
+    out.push(ev);
+  }
+  // Only surface the 3 strongest signals to avoid noise.
+  const order: Record<ProbBand, number> = { "very-likely": 0, "likely": 1, "even": 2, "unlikely": 3, "very-unlikely": 4 };
+  return out.sort((a, b) => order[a.likelihood] - order[b.likelihood]).slice(0, 3);
+}
+
+// ---------------------------------------------------------------------------
+// WEALTH TIMING — the user wants clear windows of "when you make money" vs
+// "when you lose / spend money", with the duration of each window. We read the
+// active lords against the DHANA houses (2, 11 = income & gains) and the VYAYA
+// houses (12, 8, 6 = expenses, loss, debt), weigh with the period disposition,
+// and label the window plus its own length (from the period's start→end).
+// ---------------------------------------------------------------------------
+
+export type WealthDir = "gain" | "loss" | "neutral";
+
+export interface WealthWindow {
+  direction: WealthDir;
+  label: Bilingual;        // e.g. "Money-making window · ~1 yr 2 mo"
+  note: Bilingual;         // plain guidance
+}
+
+function durationText(start: string, end: string): Bilingual {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  const totalMonths = Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24 * 30.44)));
+  const yrs = Math.floor(totalMonths / 12);
+  const mos = totalMonths % 12;
+  const parts_en: string[] = [];
+  const parts_ta: string[] = [];
+  const parts_hi: string[] = [];
+  if (yrs > 0) {
+    parts_en.push(`${yrs} yr`);
+    parts_ta.push(`${yrs} வருடம்`);
+    parts_hi.push(`${yrs} वर्ष`);
+  }
+  if (mos > 0 || yrs === 0) {
+    parts_en.push(`${mos} mo`);
+    parts_ta.push(`${mos} மாதம்`);
+    parts_hi.push(`${mos} माह`);
+  }
+  return { ta: parts_ta.join(" "), en: parts_en.join(" "), hi: parts_hi.join(" ") };
+}
+
+function wealthWindow(
+  lordIndices: number[],
+  disp: Disposition,
+  natalPlanets: PlanetPosition[],
+  lagnaSign: number,
+  start: string,
+  end: string,
+): WealthWindow {
+  const GAIN_HOUSES = new Set([2, 11]);     // dhana + labha
+  const LOSS_HOUSES = new Set([12, 8, 6]);  // vyaya + randhra + rina
+  let gainHits = 0;
+  let lossHits = 0;
+  for (const idx of lordIndices) {
+    const touched = new Set<number>(ownedHouses(idx, lagnaSign));
+    const natal = natalPlanets.find((p) => p.index === idx);
+    if (natal) touched.add(houseFrom(natal.rasiIndex, lagnaSign));
+    for (const h of touched) {
+      if (GAIN_HOUSES.has(h)) gainHits++;
+      if (LOSS_HOUSES.has(h)) lossHits++;
+    }
+  }
+  // Disposition tilts the call: a benefic period on a gain house is a strong
+  // earning window; a malefic period on a loss house is a clear drain window.
+  let net = gainHits - lossHits;
+  if (disp === "subha") net += 1;
+  if (disp === "papa") net -= 1;
+  const dur = durationText(start, end);
+  let direction: WealthDir;
+  let head: Bilingual;
+  let note: Bilingual;
+  if (net >= 1 && gainHits > 0) {
+    direction = "gain";
+    head = { ta: "பணம் சேர்க்கும் காலம்", en: "Money-making window", hi: "धन-अर्जन अवधि" };
+    note = {
+      ta: "வருமானம்/சேமிப்பு உயர வாய்ப்பு — முதலீடு, சம்பாத்தியம் சாதகம்.",
+      en: "Good stretch to earn, save and invest — income tends to rise.",
+      hi: "आय व बचत बढ़ने की अवधि — निवेश व अर्जन अनुकूल।",
+    };
+  } else if (net <= -1 && lossHits > 0) {
+    direction = "loss";
+    head = { ta: "செலவு/இழப்பு காலம்", en: "Spending / loss window", hi: "व्यय / हानि अवधि" };
+    note = {
+      ta: "பெரிய செலவு/கடன்/இழப்பு சாத்தியம் — புதிய முதலீடு தவிர்க்கவும்.",
+      en: "Watch for big expenses, debt or loss — avoid fresh risky investments.",
+      hi: "बड़े व्यय/ऋण/हानि की संभावना — नया जोखिमपूर्ण निवेश टालें।",
+    };
+  } else {
+    direction = "neutral";
+    head = { ta: "நிலையான பண காலம்", en: "Steady money window", hi: "स्थिर धन अवधि" };
+    note = {
+      ta: "பெரிய ஏற்ற இறக்கம் இல்லை — சமநிலையான நிதி நிலை.",
+      en: "No major swing — finances stay broadly stable.",
+      hi: "बड़ा उतार-चढ़ाव नहीं — वित्त सामान्यतः स्थिर।",
+    };
+  }
+  return {
+    direction,
+    label: {
+      ta: `${head.ta} · ~${dur.ta}`,
+      en: `${head.en} · ~${dur.en}`,
+      hi: `${head.hi ?? head.en} · ~${dur.hi ?? dur.en}`,
+    },
+    note,
   };
 }
 
@@ -601,7 +1072,7 @@ function planetPillar(
   const ownedTa = owned.length ? `${owned.map(ordTa).join(", ")} அதிபதி` : "சாயா கிரகம் (அதிபத்தியம் இல்லை)";
   const ownedHi = owned.length ? `${owned.map(ordHi).join(", ")} का स्वामी` : "छाया ग्रह (स्वामित्व नहीं)";
 
-  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith) : null;
+  const pariv = ruled.parivartanaWith !== null ? parivartanaNote(lordIndex, ruled.parivartanaWith, ruled.parivartanaType!, ruled.parivartanaDamaged) : null;
   const specTa = (ruled.special ? ` ${ruled.special.note.ta}` : "") + (pariv ? ` ${pariv.ta}` : "");
   const specEn = (ruled.special ? ` ${ruled.special.note.en}` : "") + (pariv ? ` ${pariv.en}` : "");
   const specHi = (ruled.special ? ` ${ruled.special.note.hi ?? ruled.special.note.en}` : "") + (pariv ? ` ${pariv.hi ?? pariv.en}` : "");
@@ -826,6 +1297,10 @@ export function analyzeDashaTransit(
               lordClause({ ta: "அந்தரம்:", en: "Antara:", hi: "अंतर:" }, ad.lordIndex, natalPlanets, lagnaSign, moonSign, tp),
               saniGuruNote(moonSign, tp),
             ],
+            probability: probabilityFromScore(score, 9),
+            lifeAreaCalls: lifeAreaCalls([md.lordIndex, bd.lordIndex, ad.lordIndex], disp, natalPlanets, lagnaSign),
+            lifeEvents: lifeEvents([md.lordIndex, bd.lordIndex, ad.lordIndex], disp, natalPlanets, lagnaSign),
+            wealthTiming: wealthWindow([md.lordIndex, bd.lordIndex, ad.lordIndex], disp, natalPlanets, lagnaSign, fmt(ad.start), fmt(ad.end)),
           });
         }
       } else {
@@ -862,6 +1337,10 @@ export function analyzeDashaTransit(
             lordClause({ ta: "புக்தி:", en: "Bhukti:", hi: "भुक्ति:" }, bd.lordIndex, natalPlanets, lagnaSign, moonSign, tp),
             saniGuruNote(moonSign, tp),
           ],
+          probability: probabilityFromScore(score, 6),
+          lifeAreaCalls: lifeAreaCalls([md.lordIndex, bd.lordIndex], disp, natalPlanets, lagnaSign),
+          lifeEvents: lifeEvents([md.lordIndex, bd.lordIndex], disp, natalPlanets, lagnaSign),
+          wealthTiming: wealthWindow([md.lordIndex, bd.lordIndex], disp, natalPlanets, lagnaSign, fmt(bd.start), fmt(bd.end)),
         });
       }
     }

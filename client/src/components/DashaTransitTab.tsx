@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLang } from "@/lib/lang";
 import { UI } from "@shared/astro/constants";
 import type { Bilingual } from "@shared/astro/constants";
@@ -9,8 +11,14 @@ import type {
   TimelinePeriod,
   LifetimeFoundation,
   FoundationPillar,
+  ProbBand,
+  WealthDir,
+  LifeEvent,
 } from "@shared/astro/dasha-transit-analysis";
+import type { PeriodOutcome } from "@shared/schema";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { toneStyle } from "./KNRaoTab";
 import {
   CalendarClock,
@@ -22,8 +30,18 @@ import {
   Star,
   ArrowRight,
   ChevronDown,
+  ChevronRight,
   History,
   Anchor,
+  Gauge,
+  Heart,
+  Baby,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  MessageSquarePlus,
+  Check,
+  CircleDot,
 } from "lucide-react";
 
 // Default the visible timeline to periods from 1990 onward; older periods
@@ -36,6 +54,7 @@ function isEarlier(endIso: string): boolean {
 
 interface Props {
   chart: ChartResult | null;
+  chartId: number | null;
 }
 
 // Disposition → Tone mapping for reusing the KN Rao toneStyle palette.
@@ -188,18 +207,257 @@ function statusChip(status: "past" | "current" | "future"): string {
   }
 }
 
-// Shared renderer for a single timeline period row (used for both the default
-// 1990+ list and the collapsible 1900–1990 list).
 type TFn = (b: Bilingual | undefined, override?: "ta" | "en" | "hi") => string;
-function renderTimelineRow(p: TimelinePeriod, key: string, t: TFn) {
-  const st = timelineStyle(p.disposition);
+
+// Probability band → colour grammar for the confidence badge.
+function probBandStyle(band: ProbBand): string {
+  switch (band) {
+    case "very-likely":
+    case "likely":
+      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+    case "unlikely":
+    case "very-unlikely":
+      return "bg-destructive/15 text-destructive";
+    default:
+      return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+  }
+}
+
+// Likelihood band → small dot colour for life events.
+function likelihoodDot(band: ProbBand): string {
+  switch (band) {
+    case "very-likely":
+    case "likely":
+      return "text-emerald-500";
+    case "unlikely":
+    case "very-unlikely":
+      return "text-destructive";
+    default:
+      return "text-amber-500";
+  }
+}
+
+// Wealth-window direction → colour + icon.
+function wealthStyle(dir: WealthDir): { chip: string; icon: JSX.Element } {
+  switch (dir) {
+    case "gain":
+      return {
+        chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+        icon: <TrendingUp className="h-3.5 w-3.5" />,
+      };
+    case "loss":
+      return {
+        chip: "bg-destructive/15 text-destructive",
+        icon: <TrendingDown className="h-3.5 w-3.5" />,
+      };
+    default:
+      return {
+        chip: "bg-muted text-muted-foreground",
+        icon: <Wallet className="h-3.5 w-3.5" />,
+      };
+  }
+}
+
+// Icon per life-event key.
+function eventIcon(key: string): JSX.Element {
+  if (key === "marriage") return <Heart className="h-3.5 w-3.5" />;
+  if (key === "childbirth") return <Baby className="h-3.5 w-3.5" />;
+  return <Star className="h-3.5 w-3.5" />;
+}
+
+function ratingChip(rating: string): string {
+  switch (rating) {
+    case "matched":
+      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+    case "partial":
+      return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+    default:
+      return "bg-destructive/15 text-destructive";
+  }
+}
+
+type Rating = "matched" | "partial" | "missed";
+
+// The "confirm what happened" feedback form, shown only on PAST periods.
+// Mirrors the IncidentsTab react-query pattern. Requires a saved chartId.
+function OutcomeFeedback({
+  p,
+  chartId,
+  t,
+}: {
+  p: TimelinePeriod;
+  chartId: number | null;
+  t: TFn;
+}) {
+  const periodKey = `${p.level}:${p.start}:${p.end}`;
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [rating, setRating] = useState<Rating>("matched");
+
+  const listQuery = useQuery<PeriodOutcome[]>({
+    queryKey: ["/api/charts", chartId, "outcomes"],
+    queryFn: async () => {
+      const r = await apiRequest("GET", `/api/charts/${chartId}/outcomes`);
+      return r.json();
+    },
+    enabled: chartId != null,
+  });
+
+  const existing = (listQuery.data ?? []).find((o) => o.periodKey === periodKey);
+
+  const saveMut = useMutation<PeriodOutcome, Error, void>({
+    mutationFn: async () => {
+      if (chartId == null) throw new Error("No chart");
+      const r = await apiRequest("POST", "/api/outcomes", {
+        chartId,
+        periodKey,
+        level: p.level,
+        lordLabel: p.label.en,
+        periodStart: p.start,
+        periodEnd: p.end,
+        predictedBand: p.probability.band,
+        predictedPercent: p.probability.percent,
+        rating,
+        actualOutcome: text.trim(),
+      });
+      return r.json();
+    },
+    onSuccess: () => {
+      setOpen(false);
+      setText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/charts", chartId, "outcomes"] });
+    },
+  });
+
+  // No saved chart — gently prompt to save first.
+  if (chartId == null) {
+    return (
+      <div className="mt-2 text-[11px] text-muted-foreground/80 italic" data-testid={`dt-outcome-needsave-${periodKey}`}>
+        {t(UI.dtNeedSaveChart)}
+      </div>
+    );
+  }
+
+  // Already recorded — show the logged outcome + rating.
+  if (existing) {
+    return (
+      <div
+        className="mt-2 rounded-md border border-card-border bg-background/50 px-2.5 py-2"
+        data-testid={`dt-outcome-recorded-${periodKey}`}
+      >
+        <div className="flex items-center gap-1.5 text-[11px] font-medium">
+          <Check className="h-3.5 w-3.5 text-emerald-500" />
+          <span className="text-muted-foreground">{t(UI.dtRecorded)}</span>
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full ${ratingChip(existing.rating)}`}>
+            {t(
+              existing.rating === "matched"
+                ? UI.dtRatingMatched
+                : existing.rating === "partial"
+                  ? UI.dtRatingPartial
+                  : UI.dtRatingMissed,
+            )}
+          </span>
+        </div>
+        <p className="mt-1 text-[11.5px] text-foreground/80 leading-snug">{existing.actualOutcome}</p>
+      </div>
+    );
+  }
+
+  // Not yet recorded — collapsed trigger, expands to a form.
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline"
+        data-testid={`dt-outcome-open-${periodKey}`}
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+        {t(UI.dtRecordThis)}
+      </button>
+    );
+  }
+
+  const ratings: { key: Rating; label: Bilingual }[] = [
+    { key: "matched", label: UI.dtRatingMatched },
+    { key: "partial", label: UI.dtRatingPartial },
+    { key: "missed", label: UI.dtRatingMissed },
+  ];
+
   return (
     <div
-      key={key}
+      className="mt-2 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2.5"
+      data-testid={`dt-outcome-form-${periodKey}`}
+    >
+      <div className="text-[11.5px] font-medium text-foreground">{t(UI.dtFeedbackTitle)}</div>
+      <p className="mt-0.5 text-[10.5px] text-muted-foreground leading-snug">{t(UI.dtFeedbackHint)}</p>
+
+      {/* Rating buttons */}
+      <div className="mt-2 flex gap-1.5">
+        {ratings.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => setRating(r.key)}
+            className={`flex-1 text-[11px] px-2 py-1 rounded-md font-medium border transition-colors ${
+              rating === r.key
+                ? `${ratingChip(r.key)} border-transparent`
+                : "bg-background/60 text-muted-foreground border-card-border hover:bg-muted/40"
+            }`}
+            data-testid={`dt-outcome-rating-${r.key}-${periodKey}`}
+          >
+            {t(r.label)}
+          </button>
+        ))}
+      </div>
+
+      <Textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={t(UI.dtOutcomePlaceholder)}
+        className="mt-2 min-h-[60px] text-[12px]"
+        maxLength={2000}
+        data-testid={`dt-outcome-text-${periodKey}`}
+      />
+
+      <div className="mt-2 flex justify-end">
+        <Button
+          size="sm"
+          className="h-7 gap-1.5 text-[11px]"
+          disabled={text.trim() === "" || saveMut.isPending}
+          onClick={() => saveMut.mutate()}
+          data-testid={`dt-outcome-save-${periodKey}`}
+        >
+          <Check className="h-3.5 w-3.5" />
+          {saveMut.isPending ? t(UI.loading) : t(UI.dtSaveOutcome)}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// A single timeline period row (used for both the default 1990+ list and the
+// collapsible 1900–1990 list). Now a real component so it can host the
+// probabilistic layer, life events, money windows, and the feedback loop.
+function TimelineRow({
+  p,
+  rowKey,
+  chartId,
+  t,
+}: {
+  p: TimelinePeriod;
+  rowKey: string;
+  chartId: number | null;
+  t: TFn;
+}) {
+  const st = timelineStyle(p.disposition);
+  const ws = wealthStyle(p.wealthTiming.direction);
+  return (
+    <div
       className={`rounded-lg border border-card-border bg-card p-3 ${
         p.status === "current" ? "ring-1 ring-primary/40" : ""
       }`}
-      data-testid={`dt-timeline-${key}`}
+      data-testid={`dt-timeline-${rowKey}`}
     >
       <div className="flex items-start gap-2.5">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${st.dot}`} />
@@ -222,6 +480,34 @@ function renderTimelineRow(p: TimelinePeriod, key: string, t: TFn) {
           <p className={`text-[13px] font-medium mt-1 leading-snug ${st.text}`}>
             {t(p.headline)}
           </p>
+
+          {/* Probability / confidence badge */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded-full font-medium ${probBandStyle(
+                p.probability.band,
+              )}`}
+              data-testid={`dt-prob-${rowKey}`}
+            >
+              <Gauge className="h-3 w-3" />
+              {t(p.probability.label)}
+            </span>
+          </div>
+
+          {/* Money-making vs loss window (with duration) */}
+          <div
+            className={`mt-1.5 rounded-md px-2 py-1.5 ${ws.chip}`}
+            data-testid={`dt-wealth-${rowKey}`}
+          >
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+              {ws.icon}
+              {t(p.wealthTiming.label)}
+            </div>
+            <p className="mt-0.5 text-[10.5px] opacity-90 leading-snug">
+              {t(p.wealthTiming.note)}
+            </p>
+          </div>
+
           {/* Per-lord classical breakdown — owns / placed / transits */}
           {p.clauses && p.clauses.length > 0 && (
             <ul className="mt-1.5 space-y-1">
@@ -236,6 +522,60 @@ function renderTimelineRow(p: TimelinePeriod, key: string, t: TFn) {
               ))}
             </ul>
           )}
+
+          {/* Key life areas */}
+          {p.lifeAreaCalls && p.lifeAreaCalls.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                <CircleDot className="h-3 w-3" /> {t(UI.dtLifeAreas)}
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {p.lifeAreaCalls.map((a, ai) => (
+                  <li
+                    key={ai}
+                    className="text-[11.5px] text-foreground/80 flex gap-1.5 leading-snug"
+                  >
+                    <ChevronRight className="h-3 w-3 mt-[2px] text-primary/60 shrink-0" />
+                    <span>{t(a)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Important life events — marriage / childbirth (count + gender) / etc. */}
+          {p.lifeEvents && p.lifeEvents.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> {t(UI.dtLifeEvents)}
+              </div>
+              <ul className="mt-1 space-y-1.5">
+                {p.lifeEvents.map((e: LifeEvent, ei) => (
+                  <li
+                    key={ei}
+                    className="rounded-md border border-card-border bg-background/40 px-2 py-1.5"
+                    data-testid={`dt-event-${e.key}-${rowKey}`}
+                  >
+                    <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-foreground">
+                      <span className={likelihoodDot(e.likelihood)}>{eventIcon(e.key)}</span>
+                      {t(e.label)}
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+                      {t(e.note)}
+                    </p>
+                    {e.detail && (
+                      <p className="mt-0.5 text-[11px] text-foreground/80 leading-snug">
+                        {t(e.detail)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* "Confirm what happened" feedback — PAST periods only */}
+          {p.status === "past" && <OutcomeFeedback p={p} chartId={chartId} t={t} />}
         </div>
       </div>
     </div>
@@ -275,7 +615,7 @@ function PillarRow({ pillar, t }: { pillar: FoundationPillar; t: TFn }) {
   );
 }
 
-export function DashaTransitTab({ chart }: Props) {
+export function DashaTransitTab({ chart, chartId }: Props) {
   const { t } = useLang();
   const [showEarlier, setShowEarlier] = useState(false);
 
@@ -429,7 +769,9 @@ export function DashaTransitTab({ chart }: Props) {
             </button>
             {showEarlier && (
               <div className="mt-2 space-y-2" data-testid="dt-earlier-list">
-                {earlierPeriods.map((p, pi) => renderTimelineRow(p, `early-${pi}`, t))}
+                {earlierPeriods.map((p, pi) => (
+                  <TimelineRow key={`early-${pi}`} p={p} rowKey={`early-${pi}`} chartId={chartId} t={t} />
+                ))}
               </div>
             )}
           </div>
@@ -437,7 +779,9 @@ export function DashaTransitTab({ chart }: Props) {
 
         {/* Periods from 1990 onward — shown by default */}
         <div className="mt-3 space-y-2">
-          {recentPeriods.map((p, pi) => renderTimelineRow(p, `recent-${pi}`, t))}
+          {recentPeriods.map((p, pi) => (
+            <TimelineRow key={`recent-${pi}`} p={p} rowKey={`recent-${pi}`} chartId={chartId} t={t} />
+          ))}
         </div>
       </Card>
 

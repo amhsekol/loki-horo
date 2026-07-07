@@ -1,7 +1,8 @@
-import { charts, incidents, users, chartShares } from "@shared/schema";
+import { charts, incidents, users, chartShares, periodOutcomes } from "@shared/schema";
 import type {
   Chart, InsertChart, Incident, InsertIncident,
   User, ChartWithAccess, ShareRecipient,
+  PeriodOutcome, InsertPeriodOutcome,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
@@ -79,6 +80,25 @@ sqlite.exec(`
 `);
 sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS chart_shares_chart_user_idx ON chart_shares(chart_id, user_id);`);
 
+// Period outcomes: "confirm what happened" feedback loop for past dasha periods.
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS period_outcomes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chart_id INTEGER NOT NULL,
+    period_key TEXT NOT NULL,
+    level TEXT NOT NULL,
+    lord_label TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    predicted_band TEXT,
+    predicted_percent INTEGER,
+    rating TEXT NOT NULL,
+    actual_outcome TEXT NOT NULL,
+    noted_at INTEGER NOT NULL
+  );
+`);
+sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS period_outcomes_chart_period_idx ON period_outcomes(chart_id, period_key);`);
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {
@@ -110,6 +130,11 @@ export interface IStorage {
   listIncidents(chartId: number): Promise<Incident[]>;
   createIncident(incident: InsertIncident): Promise<Incident>;
   deleteIncident(id: number): Promise<{ changes: number }>;
+
+  // Period outcomes ("confirm what happened" feedback loop)
+  listPeriodOutcomes(chartId: number): Promise<PeriodOutcome[]>;
+  upsertPeriodOutcome(outcome: InsertPeriodOutcome): Promise<PeriodOutcome>;
+  deletePeriodOutcome(chartId: number, periodKey: string): Promise<{ changes: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -288,6 +313,54 @@ export class DatabaseStorage implements IStorage {
 
   async deleteIncident(id: number): Promise<{ changes: number }> {
     return db.delete(incidents).where(eq(incidents.id, id)).run();
+  }
+
+  // --- Period outcomes -----------------------------------------------------
+  async listPeriodOutcomes(chartId: number): Promise<PeriodOutcome[]> {
+    return db.select().from(periodOutcomes)
+      .where(eq(periodOutcomes.chartId, chartId))
+      .orderBy(periodOutcomes.periodStart)
+      .all();
+  }
+
+  // Insert or update the single outcome for a (chart, period). Idempotent on
+  // the unique (chart_id, period_key) index so re-submitting edits in place.
+  async upsertPeriodOutcome(insert: InsertPeriodOutcome): Promise<PeriodOutcome> {
+    const existing = db.select().from(periodOutcomes)
+      .where(and(eq(periodOutcomes.chartId, insert.chartId), eq(periodOutcomes.periodKey, insert.periodKey)))
+      .get();
+    if (existing) {
+      return db.update(periodOutcomes)
+        .set({
+          level: insert.level,
+          lordLabel: insert.lordLabel,
+          periodStart: insert.periodStart,
+          periodEnd: insert.periodEnd,
+          predictedBand: insert.predictedBand ?? null,
+          predictedPercent: insert.predictedPercent ?? null,
+          rating: insert.rating,
+          actualOutcome: insert.actualOutcome,
+          notedAt: Date.now(),
+        })
+        .where(eq(periodOutcomes.id, existing.id))
+        .returning()
+        .get();
+    }
+    return db.insert(periodOutcomes)
+      .values({
+        ...insert,
+        predictedBand: insert.predictedBand ?? null,
+        predictedPercent: insert.predictedPercent ?? null,
+        notedAt: Date.now(),
+      })
+      .returning()
+      .get();
+  }
+
+  async deletePeriodOutcome(chartId: number, periodKey: string): Promise<{ changes: number }> {
+    return db.delete(periodOutcomes)
+      .where(and(eq(periodOutcomes.chartId, chartId), eq(periodOutcomes.periodKey, periodKey)))
+      .run();
   }
 }
 

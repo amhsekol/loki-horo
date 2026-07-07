@@ -61,8 +61,16 @@ export function toPublicUser(u: User): PublicUser {
   return { id: u.id, email: u.email, displayName: u.displayName, role: u.role, provider: u.provider };
 }
 
-export function establishSession(req: Request, user: User) {
+export function establishSession(req: Request, user: User): Promise<void> {
   req.session.userId = user.id;
+  // Explicitly persist the session before the response is sent. With
+  // saveUninitialized:false express-session normally auto-saves a modified
+  // session at response time, but making the save explicit (and awaited by the
+  // login/register routes) guarantees the Set-Cookie header is emitted before
+  // the JSON body is flushed — avoiding a race where the cookie is dropped.
+  return new Promise((resolve, reject) => {
+    req.session.save((err) => (err ? reject(err) : resolve()));
+  });
 }
 
 // --- Middleware ------------------------------------------------------------
@@ -200,9 +208,9 @@ export async function setupGoogleOAuth(app: Express) {
   app.get(
     "/api/auth/google/callback",
     passport.authenticate("google", { session: false, failureRedirect: "/#/auth?error=google" }),
-    (req: Request, res: Response) => {
+    async (req: Request, res: Response) => {
       const user = req.user as User | undefined;
-      if (user) establishSession(req, user);
+      if (user) await establishSession(req, user);
       res.redirect("/#/");
     },
   );

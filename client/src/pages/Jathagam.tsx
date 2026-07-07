@@ -491,7 +491,7 @@ export default function Jathagam() {
           ) : activeTab === "risefall" ? (
             <RiseFallTab chart={chart} />
           ) : activeTab === "dashatransit" ? (
-            <DashaTransitTab chart={chart} />
+            <DashaTransitTab chart={chart} chartId={activeChartId} />
           ) : activeTab === "persona" ? (
             <PersonaTab chart={chart} />
           ) : (

@@ -120,6 +120,47 @@ export const insertIncidentSchema = createInsertSchema(incidents)
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Incident = typeof incidents.$inferSelect;
 
+// ---------------------------------------------------------------------------
+// Period outcomes: the "confirm what happened" feedback loop. For a PAST dasha
+// period the user records what actually occurred and rates how well the
+// prediction matched. This lets the app backtest its calls over time.
+// ---------------------------------------------------------------------------
+export const periodOutcomes = sqliteTable("period_outcomes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  chartId: integer("chart_id").notNull(),
+  // Period identity (matches a TimelinePeriod from the engine).
+  periodKey: text("period_key").notNull(), // stable id = `${level}:${start}:${end}`
+  level: text("level").notNull(),          // "bhukti" | "antara"
+  lordLabel: text("lord_label").notNull(), // e.g. "Rahu / Budha" (period label, en)
+  periodStart: text("period_start").notNull(), // YYYY-MM-DD
+  periodEnd: text("period_end").notNull(),     // YYYY-MM-DD
+  // What the engine predicted (snapshot, so backtests stay meaningful even if
+  // the engine logic later changes).
+  predictedBand: text("predicted_band"),   // ProbBand at time of logging
+  predictedPercent: integer("predicted_percent"),
+  // The user's report.
+  rating: text("rating").notNull(),        // "matched" | "partial" | "missed"
+  actualOutcome: text("actual_outcome").notNull(), // free text of what happened
+  notedAt: integer("noted_at").notNull(),
+}, (t) => ({
+  uniq: uniqueIndex("period_outcomes_chart_period_idx").on(t.chartId, t.periodKey),
+}));
+
+export const insertPeriodOutcomeSchema = createInsertSchema(periodOutcomes)
+  .omit({ id: true, notedAt: true })
+  .extend({
+    level: z.enum(["bhukti", "antara"]),
+    rating: z.enum(["matched", "partial", "missed"]),
+    actualOutcome: z.string().min(1).max(2000),
+    periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    predictedBand: z.string().nullish(),
+    predictedPercent: z.number().int().nullish(),
+  });
+
+export type InsertPeriodOutcome = z.infer<typeof insertPeriodOutcomeSchema>;
+export type PeriodOutcome = typeof periodOutcomes.$inferSelect;
+
 // Request schema for chart computation
 export const computeChartSchema = z.object({
   name: z.string().default(""),

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { computeChart, computePanchangam } from "@shared/astro/engine";
 import {
   computeChartSchema, panchangamSchema, insertChartSchema, insertIncidentSchema,
-  registerSchema, loginSchema, shareChartSchema,
+  registerSchema, loginSchema, shareChartSchema, insertPeriodOutcomeSchema,
 } from "@shared/schema";
 import type { User } from "@shared/schema";
 import {
@@ -37,7 +37,7 @@ export async function registerRoutes(
       provider: "password",
       role: "user", // self-signup accounts are always regular users
     });
-    establishSession(req, user);
+    await establishSession(req, user);
     res.json(toPublicUser(user));
   });
 
@@ -49,7 +49,7 @@ export async function registerRoutes(
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
-    establishSession(req, user);
+    await establishSession(req, user);
     res.json(toPublicUser(user));
   });
 
@@ -226,6 +226,39 @@ export async function registerRoutes(
       return res.status(403).json({ error: "No access to this chart." });
     }
     res.json(await storage.deleteIncident(id));
+  });
+
+  // ==========================================================================
+  // Period outcomes ("confirm what happened" feedback loop) — chart-scoped.
+  // ==========================================================================
+  app.get("/api/charts/:chartId/outcomes", requireAuth, async (req, res) => {
+    const chartId = z.coerce.number().parse(req.params.chartId);
+    const u = currentUser(res);
+    if (!(await storage.canAccessChart(u.id, chartId, u.role === "admin"))) {
+      return res.status(403).json({ error: "No access to this chart." });
+    }
+    res.json(await storage.listPeriodOutcomes(chartId));
+  });
+
+  // Upsert (create or edit) the recorded outcome for one past period.
+  app.post("/api/outcomes", requireAuth, async (req, res) => {
+    const parsed = insertPeriodOutcomeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const u = currentUser(res);
+    if (!(await storage.canAccessChart(u.id, parsed.data.chartId, u.role === "admin"))) {
+      return res.status(403).json({ error: "No access to this chart." });
+    }
+    res.json(await storage.upsertPeriodOutcome(parsed.data));
+  });
+
+  app.delete("/api/charts/:chartId/outcomes/:periodKey", requireAuth, async (req, res) => {
+    const chartId = z.coerce.number().parse(req.params.chartId);
+    const periodKey = String(req.params.periodKey);
+    const u = currentUser(res);
+    if (!(await storage.canAccessChart(u.id, chartId, u.role === "admin"))) {
+      return res.status(403).json({ error: "No access to this chart." });
+    }
+    res.json(await storage.deletePeriodOutcome(chartId, periodKey));
   });
 
   // ==========================================================================
