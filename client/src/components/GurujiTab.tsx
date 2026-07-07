@@ -4,18 +4,23 @@ import { useLang } from "@/lib/lang";
 import { UI, type Bilingual } from "@shared/astro/constants";
 import type { ChartResult } from "@shared/astro/engine";
 import { matchRules, type ValuBand, type MatchableRule } from "@shared/astro/guruji-analysis";
-import type {
-  PredictionReport,
-  TopicPrediction,
-  PredLine,
-  PredTone,
-  Confidence,
+import {
+  VERDICT_WORD,
+  type PredictionReport,
+  type TopicPrediction,
+  type PredLine,
+  type PredTone,
+  type Confidence,
+  type Verdict,
+  type ScoreRow,
+  type AppliedOverride,
 } from "@shared/astro/guruji-predict";
 import type { Rule } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import {
   Sun, BarChart3, Sparkles, BookMarked, ChevronDown, Library, Compass,
   Heart, Briefcase, GraduationCap, Coins, Users, HeartPulse,
+  CheckCircle2, Scale, AlertTriangle, Clock, Moon, ShieldCheck, ChevronRight,
 } from "lucide-react";
 import { toneStyle } from "./KNRaoTab";
 import { RULE_CATEGORIES, categoryLabel, ruleTitle, ruleBody, planetName } from "@/lib/rules";
@@ -219,10 +224,13 @@ export function GurujiTab({ chart }: Props) {
 }
 
 // ---------------------------------------------------------------------------
-// Predictions section: runs the Aditya Guruji step-by-step prediction engine
-// (already computed inside ChartResult.prediction) and renders per-topic cards
-// in the document's output format: Natal promise · Active period · Transit ·
-// Special rules · Final result · Caution. Every line is chart-grounded.
+// v3 PREDICTIONS SECTION — score-based, single-conclusion-per-topic.
+// Each topic card leads with ONE verdict, a plain-language reason, and the top
+// deciding reasons. The full three-score math (Strength / Subathuvam /
+// Papathuvam per planet), the applied override rules, timing and event detail
+// live inside a collapsible panel so the card stays readable but nothing is
+// hidden. Sensitive topics (longevity) carry a gentle caution and are never
+// read as denial. Every number is grounded in a real placement in this chart.
 // ---------------------------------------------------------------------------
 
 // lucide icon name (from the engine's ModuleSpec) → component.
@@ -230,103 +238,231 @@ const PRED_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Heart, Briefcase, GraduationCap, Coins, Users, HeartPulse,
 };
 
-// Confidence → colour chip + label. Reuses the tone palette semantics.
-function confStyle(c: Confidence): { chip: string; labelKey: Bilingual } {
-  switch (c) {
-    case "strong":
-      return { chip: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", labelKey: UI.confStrong };
-    case "moderate":
-      return { chip: "bg-sky-500/12 text-sky-600 dark:text-sky-400", labelKey: UI.confModerate };
+// Verdict → colour system + icon + label. This is the single most important
+// visual signal, so each verdict gets a distinct, legible treatment.
+function verdictStyle(v: Verdict): {
+  badge: string; banner: string; border: string; dot: string;
+  icon: React.ReactNode; label: Bilingual;
+} {
+  switch (v) {
+    case "good":
+      return {
+        badge: "bg-emerald-500 text-white",
+        banner: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+        border: "border-emerald-500/40", dot: "bg-emerald-500",
+        icon: <CheckCircle2 className="h-4 w-4" />, label: UI.verdictGood,
+      };
+    case "mixed-good":
+      return {
+        badge: "bg-teal-500 text-white",
+        banner: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
+        border: "border-teal-500/40", dot: "bg-teal-500",
+        icon: <Scale className="h-4 w-4" />, label: UI.verdictMixedGood,
+      };
+    case "mixed-bad":
+      return {
+        badge: "bg-amber-500 text-white",
+        banner: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+        border: "border-amber-500/40", dot: "bg-amber-500",
+        icon: <Scale className="h-4 w-4" />, label: UI.verdictMixedBad,
+      };
     case "delayed":
-      return { chip: "bg-amber-500/12 text-amber-600 dark:text-amber-400", labelKey: UI.confDelayed };
-    case "conditional":
-      return { chip: "bg-amber-500/12 text-amber-600 dark:text-amber-400", labelKey: UI.confConditional };
-    case "weak":
-      return { chip: "bg-orange-500/12 text-orange-600 dark:text-orange-400", labelKey: UI.confWeak };
-    case "denied":
-      return { chip: "bg-destructive/12 text-destructive", labelKey: UI.confDenied };
+      return {
+        badge: "bg-orange-500 text-white",
+        banner: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30",
+        border: "border-orange-500/40", dot: "bg-orange-500",
+        icon: <Clock className="h-4 w-4" />, label: UI.verdictDelayed,
+      };
+    case "dormant":
+      return {
+        badge: "bg-slate-400 text-white",
+        banner: "bg-slate-400/10 text-slate-600 dark:text-slate-300 border-slate-400/30",
+        border: "border-slate-400/40", dot: "bg-slate-400",
+        icon: <Moon className="h-4 w-4" />, label: UI.verdictDormant,
+      };
+    case "not-promised":
+      return {
+        badge: "bg-slate-500 text-white",
+        banner: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
+        border: "border-slate-500/40", dot: "bg-slate-500",
+        icon: <AlertTriangle className="h-4 w-4" />, label: UI.verdictNotPromised,
+      };
+    default: // bad
+      return {
+        badge: "bg-destructive text-white",
+        banner: "bg-destructive/10 text-destructive border-destructive/30",
+        border: "border-destructive/40", dot: "bg-destructive",
+        icon: <AlertTriangle className="h-4 w-4" />, label: UI.verdictBad,
+      };
   }
 }
 
-// One labelled block of grounded lines (Natal promise / Active period / etc.).
-function PredBlock({ label, lines }: { label: Bilingual; lines: PredLine[] }) {
+// Confidence (high/medium/low) → subtle chip.
+function confStyle(c: Confidence): { chip: string; labelKey: Bilingual } {
+  switch (c) {
+    case "high":
+      return { chip: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400", labelKey: UI.confHigh };
+    case "medium":
+      return { chip: "bg-sky-500/12 text-sky-600 dark:text-sky-400", labelKey: UI.confMedium };
+    default:
+      return { chip: "bg-muted text-muted-foreground", labelKey: UI.confLow };
+  }
+}
+
+// A single tone-coloured bullet line (used for the top reasons).
+function ReasonLine({ line }: { line: PredLine }) {
+  const { t } = useLang();
+  const ts = toneStyle(line.tone ?? "info");
+  const textColor = ts.chip.split(" ").filter((c) => c.startsWith("text-")).join(" ");
+  return (
+    <li className="flex items-start gap-2">
+      <span className={`mt-0.5 shrink-0 ${textColor}`}>{ts.icon}</span>
+      <span className="text-sm leading-snug text-foreground/90 break-words min-w-0">{t(line.text)}</span>
+    </li>
+  );
+}
+
+// A compact bar showing subathuvam (green) vs papathuvam (red) for one planet.
+function ScoreBars({ suba, papa }: { suba: number; papa: number }) {
+  return (
+    <div className="flex flex-col gap-0.5 w-full min-w-[52px]">
+      <div className="h-1.5 rounded-full bg-emerald-500/15 overflow-hidden">
+        <div className="h-full bg-emerald-500" style={{ width: `${suba}%` }} />
+      </div>
+      <div className="h-1.5 rounded-full bg-destructive/15 overflow-hidden">
+        <div className="h-full bg-destructive" style={{ width: `${papa}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// The collapsible full-scoring panel: per-planet score table + overrides.
+function ScoreMath({ topic }: { topic: TopicPrediction }) {
   const { t } = useLang();
   return (
-    <div className="space-y-1.5">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {t(label)}
+    <div className="mt-3 space-y-4" data-testid={`pred-math-${topic.key}`}>
+      {/* Score table */}
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          {t(UI.predScoreTable)}
+        </div>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr className="text-muted-foreground text-left">
+                <th className="font-medium py-1 pr-2">{t(UI.predColPlanet)}</th>
+                <th className="font-medium py-1 px-1 text-center hidden sm:table-cell">{t(UI.predColStrength)}</th>
+                <th className="font-medium py-1 px-1">{t(UI.predColSuba)} / {t(UI.predColPapa)}</th>
+                <th className="font-medium py-1 pl-2 text-right">{t(UI.predColNet)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topic.scoreRows.map((r: ScoreRow) => (
+                <tr key={r.index} className="border-t border-border/50 align-middle" data-testid={`row-score-${topic.key}-${r.index}`}>
+                  <td className="py-1.5 pr-2">
+                    <div className="font-medium leading-tight break-words">{t(r.name)}</div>
+                    <div className="text-[10.5px] text-muted-foreground leading-tight break-words">{t(r.role)}{r.floored ? " ·⚑" : ""}</div>
+                  </td>
+                  <td className="py-1.5 px-1 text-center tabular-nums hidden sm:table-cell">{r.strength}</td>
+                  <td className="py-1.5 px-1">
+                    <div className="flex items-center gap-1.5">
+                      <ScoreBars suba={r.subathuvam} papa={r.papathuvam} />
+                      <span className="text-[10.5px] text-muted-foreground tabular-nums whitespace-nowrap">{r.subathuvam}/{r.papathuvam}</span>
+                    </div>
+                  </td>
+                  <td className={`py-1.5 pl-2 text-right font-semibold tabular-nums whitespace-nowrap ${r.net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+                    {r.net >= 0 ? "+" : ""}{r.net}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-      {lines.length === 0 ? (
-        <p className="text-xs text-muted-foreground/70">{t(UI.predNone)}</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {lines.map((ln, i) => {
-            const ts = toneStyle(ln.tone ?? "info");
-            return (
-              <li key={i} className="flex items-start gap-2">
-                <span className={`mt-0.5 shrink-0 ${ts.chip.split(" ").filter((c) => c.startsWith("text-")).join(" ")}`}>
-                  {ts.icon}
-                </span>
-                <span className="text-sm leading-snug text-foreground/90 break-words min-w-0">
-                  {t(ln.text)}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+
+      {/* Applied override rules */}
+      {topic.overrides.length > 0 && (
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+            {t(UI.predOverrides)}
+          </div>
+          <ul className="space-y-1.5">
+            {topic.overrides.map((o: AppliedOverride, i) => {
+              const ts = toneStyle(o.tone);
+              const textColor = ts.chip.split(" ").filter((c) => c.startsWith("text-")).join(" ");
+              return (
+                <li key={i} className="flex items-start gap-2" data-testid={`override-${topic.key}-${o.code}`}>
+                  <span className={`mt-0.5 shrink-0 ${textColor}`}><ShieldCheck className="h-3.5 w-3.5" /></span>
+                  <span className="text-[12.5px] leading-snug text-foreground/85 break-words min-w-0">{t(o.text)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
+
+      {/* Timing + event detail */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            <Clock className="h-3.5 w-3.5" /> {t(UI.predTiming)}
+          </div>
+          <p className="text-[12.5px] leading-snug text-foreground/85 break-words" data-testid={`text-pred-timing-${topic.key}`}>{t(topic.timing)}</p>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            {t(UI.predEventDetail)}
+          </div>
+          <p className="text-[12.5px] leading-snug text-foreground/85 break-words" data-testid={`text-pred-detail-${topic.key}`}>{t(topic.eventDetail)}</p>
+        </div>
+      </div>
     </div>
   );
 }
 
 function TopicCard({ topic }: { topic: TopicPrediction }) {
   const { t } = useLang();
+  const [open, setOpen] = useState(false);
   const Icon = PRED_ICONS[topic.icon] ?? Sparkles;
-  const ts = toneStyle(topic.tone);
+  const vs = verdictStyle(topic.verdict);
   const cs = confStyle(topic.confidence);
   return (
-    <Card
-      className={`p-4 border ${ts.border}`}
-      data-testid={`card-pred-${topic.key}`}
-    >
-      {/* Header: topic + confidence badge */}
+    <Card className={`p-4 border ${vs.border}`} data-testid={`card-pred-${topic.key}`}>
+      {/* Header: topic + verdict badge */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 font-medium">
           <Icon className="h-4 w-4 text-primary" />
           <span data-testid={`text-pred-title-${topic.key}`}>{t(topic.title)}</span>
         </div>
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cs.chip}`}
-          data-testid={`badge-pred-conf-${topic.key}`}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${vs.badge}`}
+          data-testid={`badge-pred-verdict-${topic.key}`}
         >
-          {t(UI.predConfidence)}: {t(cs.labelKey)}
+          {vs.icon} {t(vs.label)}
         </span>
       </div>
 
-      {/* Final result banner */}
-      <div className={`mt-3 rounded-lg border px-3 py-2.5 ${ts.chip}`}>
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0">{ts.icon}</span>
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
-              {t(UI.predFinal)}
-            </div>
-            <p className="text-sm font-medium leading-snug break-words" data-testid={`text-pred-final-${topic.key}`}>
-              {t(topic.finalResult)}
-            </p>
-          </div>
+      {/* Verdict reason banner (the one conclusion, in plain language) */}
+      <div className={`mt-3 rounded-lg border px-3 py-2.5 ${vs.banner}`}>
+        <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80 mb-0.5">
+          {t(UI.predVerdictReason)}
         </div>
+        <p className="text-sm font-medium leading-snug break-words" data-testid={`text-pred-reason-${topic.key}`}>
+          {t(topic.verdictReason)}
+        </p>
       </div>
 
-      {/* Detailed blocks */}
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <PredBlock label={UI.predNatal} lines={topic.natalPromise} />
-        <PredBlock label={UI.predActive} lines={topic.activePeriod} />
-        <PredBlock label={UI.predTransit} lines={topic.transit} />
-        <PredBlock label={UI.predSpecial} lines={topic.specialRules} />
+      {/* Top deciding reasons — always visible */}
+      <div className="mt-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          {t(UI.predTopReasons)}
+        </div>
+        <ul className="space-y-1.5">
+          {topic.topReasons.map((ln, i) => <ReasonLine key={i} line={ln} />)}
+        </ul>
       </div>
 
-      {/* Caution (sensitive topics) */}
+      {/* Caution (sensitive topics) — always visible, above the fold */}
       {topic.caution && (
         <div
           className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2"
@@ -338,6 +474,25 @@ function TopicCard({ topic }: { topic: TopicPrediction }) {
           <p className="text-xs leading-snug text-foreground/80 mt-0.5 break-words">{t(topic.caution)}</p>
         </div>
       )}
+
+      {/* Collapsible: full scoring math + overrides + timing + detail */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="mt-3 flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[12px] font-medium text-foreground/80 hover:bg-muted/60 transition-colors"
+        data-testid={`toggle-pred-math-${topic.key}`}
+        aria-expanded={open}
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <BarChart3 className="h-3.5 w-3.5 text-primary" />
+          {t(open ? UI.predHideMath : UI.predShowMath)}
+        </span>
+        <span className={`inline-flex items-center gap-1 text-[10.5px] rounded-full px-1.5 py-0.5 ${cs.chip}`}>
+          {t(UI.predConfidence)}: {t(cs.labelKey)}
+          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+        </span>
+      </button>
+      {open && <ScoreMath topic={topic} />}
     </Card>
   );
 }
@@ -345,6 +500,7 @@ function TopicCard({ topic }: { topic: TopicPrediction }) {
 function GurujiPredictionsSection({ prediction }: { prediction: PredictionReport }) {
   const { t } = useLang();
   const found = prediction.foundation;
+  const fts = toneStyle(found.canReceive);
   return (
     <div className="space-y-4" data-testid="guruji-predictions">
       <div>
@@ -355,14 +511,19 @@ function GurujiPredictionsSection({ prediction }: { prediction: PredictionReport
         <p className="text-sm text-muted-foreground mt-1">{t(UI.predSubtitle)}</p>
       </div>
 
-      {/* Chart foundation */}
-      <Card className="p-4 border-primary/30" data-testid="card-pred-foundation">
-        <div className="flex items-center gap-2 font-medium">
-          <Sparkles className="h-4 w-4 text-primary" /> {t(UI.predFoundation)}
+      {/* Chart foundation — capacity to receive results */}
+      <Card className={`p-4 border ${fts.border}`} data-testid="card-pred-foundation">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 font-medium">
+            <Sparkles className="h-4 w-4 text-primary" /> {t(UI.predFoundation)}
+          </div>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${fts.chip}`}>
+            {fts.icon} {t(fts.labelKey)}
+          </span>
         </div>
-        <div className="mt-3">
-          <PredBlock label={UI.predNatal} lines={found.lines} />
-        </div>
+        <ul className="mt-3 space-y-1.5">
+          {found.lines.map((ln, i) => <ReasonLine key={i} line={ln} />)}
+        </ul>
       </Card>
 
       {/* Per-topic prediction cards */}

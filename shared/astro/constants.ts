@@ -789,4 +789,36 @@ export const UI: Record<string, Bilingual> = {
   confDelayed: { ta: "தாமதம்", en: "Delayed", hi: "विलंबित" },
   confDenied: { ta: "மறுக்கப்பட்ட/மிகக் குறைவு", en: "Denied/limited", hi: "अस्वीकृत/सीमित" },
   confConditional: { ta: "நிபந்தனை", en: "Conditional", hi: "सशर्त" },
+
+  // --- v3 score-based prediction UI ---------------------------------------
+  // Section labels inside each topic card
+  predVerdict: { ta: "முடிவு", en: "Verdict", hi: "निष्कर्ष" },
+  predVerdictReason: { ta: "முக்கியக் காரணம்", en: "Main reason", hi: "मुख्य कारण" },
+  predTopReasons: { ta: "முடிவுக்கான காரணங்கள்", en: "Why this verdict", hi: "यह निष्कर्ष क्यों" },
+  predTiming: { ta: "காலம்", en: "Timing", hi: "समय" },
+  predEventDetail: { ta: "விவரம்", en: "What to expect", hi: "क्या अपेक्षित" },
+  predOverrides: { ta: "சிறப்பு விதிகள் (பயன்பட்டவை)", en: "Special rules applied", hi: "लागू विशेष नियम" },
+  predScoreTable: { ta: "கிரக மதிப்பெண்கள்", en: "Planet scores", hi: "ग्रह स्कोर" },
+  predRole: { ta: "பங்கு", en: "Role", hi: "भूमिका" },
+  // Score table column headers
+  predColPlanet: { ta: "கிரகம்", en: "Planet", hi: "ग्रह" },
+  predColStrength: { ta: "வலிமை", en: "Strength", hi: "बल" },
+  predColSuba: { ta: "சுபத்துவம்", en: "Subathuvam", hi: "शुभत्व" },
+  predColPapa: { ta: "பாபத்துவம்", en: "Papathuvam", hi: "पापत्व" },
+  predColNet: { ta: "நிகர", en: "Net", hi: "नेट" },
+  // Collapsible math toggle
+  predShowMath: { ta: "விரிவான மதிப்பெண்களைக் காட்டு", en: "Show the full scoring", hi: "पूरा स्कोरिंग दिखाएँ" },
+  predHideMath: { ta: "விரிவான மதிப்பெண்களை மறை", en: "Hide the full scoring", hi: "पूरा स्कोरिंग छिपाएँ" },
+  // Confidence enum (high/medium/low) — replaces the old strong/moderate/etc for v3
+  confHigh: { ta: "உயர்", en: "High", hi: "उच्च" },
+  confMedium: { ta: "நடுத்தர", en: "Medium", hi: "मध्यम" },
+  confLow: { ta: "குறைவு", en: "Low", hi: "निम्न" },
+  // Verdict badge labels (mirror engine VERDICT_WORD; kept here for section chrome)
+  verdictGood: { ta: "நல்லது", en: "Good", hi: "शुभ" },
+  verdictMixedGood: { ta: "கலப்பு — சாதகம்", en: "Mixed — favourable", hi: "मिश्रित — अनुकूल" },
+  verdictMixedBad: { ta: "கலப்பு — சிரமம்", en: "Mixed — strained", hi: "मिश्रित — कठिन" },
+  verdictBad: { ta: "கடினம்", en: "Difficult", hi: "कठिन" },
+  verdictDelayed: { ta: "தாமதம்", en: "Delayed", hi: "विलंबित" },
+  verdictDormant: { ta: "செயலற்றது", en: "Dormant", hi: "सुप्त" },
+  verdictNotPromised: { ta: "வாக்களிக்கப்படவில்லை", en: "Not promised", hi: "अवचनित" },
 };
