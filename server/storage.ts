@@ -122,6 +122,41 @@ sqlite.exec(`
 `);
 sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS rules_astrologer_no_idx ON rules(astrologer, rule_no);`);
 
+// Deep readings cache (LLM-generated Guruji prose per chart).
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS deep_readings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chart_id INTEGER NOT NULL,
+    requested_by INTEGER NOT NULL,
+    composer_version TEXT NOT NULL,
+    model TEXT NOT NULL,
+    status TEXT NOT NULL,
+    prose_markdown TEXT,
+    structured_json TEXT,
+    sections_completed INTEGER NOT NULL DEFAULT 0,
+    sections_total INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd_micros INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+`);
+sqlite.exec(`CREATE INDEX IF NOT EXISTS deep_readings_chart_idx ON deep_readings(chart_id);`);
+
+// Monthly Perplexity API cost budget.
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS api_budget (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    month_key TEXT NOT NULL,
+    spent_usd_micros INTEGER NOT NULL DEFAULT 0,
+    budget_usd_micros INTEGER NOT NULL DEFAULT 5000000,
+    updated_at INTEGER NOT NULL
+  );
+`);
+sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS api_budget_month_idx ON api_budget(month_key);`);
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {

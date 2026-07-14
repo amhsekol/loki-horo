@@ -195,6 +195,46 @@ export type Rule = Omit<RuleRow, "planets" | "houses"> & {
   houses: number[];
 };
 
+// ---------------------------------------------------------------------------
+// Deep readings — LLM-generated Guruji-style prose, cached per chart.
+// The deterministic composer output is always regenerated on read (cheap);
+// the LLM prose is expensive so we store it and never re-generate for the
+// same chart+version without an explicit refresh.
+// ---------------------------------------------------------------------------
+export const deepReadings = sqliteTable("deep_readings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  chartId: integer("chart_id").notNull(),        // FK -> charts.id
+  requestedBy: integer("requested_by").notNull(),  // FK -> users.id
+  composerVersion: text("composer_version").notNull(), // e.g. "1.0.0"
+  model: text("model").notNull(),                // e.g. "sonar-reasoning-pro"
+  status: text("status").notNull(),               // "pending" | "streaming" | "complete" | "failed"
+  proseMarkdown: text("prose_markdown"),          // final assembled Markdown
+  structuredJson: text("structured_json"),        // composer output (JSON)
+  sectionsCompleted: integer("sections_completed").notNull().default(0),
+  sectionsTotal: integer("sections_total").notNull().default(0),
+  errorMessage: text("error_message"),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsdMicros: integer("cost_usd_micros").notNull().default(0), // 1_000_000 = $1.00
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export type DeepReading = typeof deepReadings.$inferSelect;
+
+// Rolling monthly cost budget for the Perplexity API. One row per YYYY-MM key.
+export const apiBudget = sqliteTable("api_budget", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  monthKey: text("month_key").notNull(),         // "2026-07"
+  spentUsdMicros: integer("spent_usd_micros").notNull().default(0),
+  budgetUsdMicros: integer("budget_usd_micros").notNull().default(5_000_000), // $5 default
+  updatedAt: integer("updated_at").notNull(),
+}, (t) => ({
+  monthIdx: uniqueIndex("api_budget_month_idx").on(t.monthKey),
+}));
+
+export type ApiBudget = typeof apiBudget.$inferSelect;
+
 // Request schema for chart computation
 export const computeChartSchema = z.object({
   name: z.string().default(""),

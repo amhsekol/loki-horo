@@ -290,6 +290,45 @@ export async function registerRoutes(
   });
 
   // ==========================================================================
+  // Deep Reading (admin-only) — Perplexity Sonar-generated Guruji prose.
+  // ==========================================================================
+  app.post("/api/deep-reading/:chartId", requireAdmin, async (req, res) => {
+    try {
+      const { runDeepReading } = await import("./deep-reading");
+      const chartId = Number(req.params.chartId);
+      if (!Number.isFinite(chartId)) return res.status(400).json({ error: "Invalid chartId" });
+      const u = currentUser(res);
+      const force = req.body?.force === true;
+      const result = await runDeepReading({ chartId, requestedBy: u.id, force });
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? "Deep reading failed" });
+    }
+  });
+
+  app.get("/api/deep-reading/:chartId", requireAdmin, async (req, res) => {
+    try {
+      const { getDeepReading } = await import("./deep-reading");
+      const chartId = Number(req.params.chartId);
+      if (!Number.isFinite(chartId)) return res.status(400).json({ error: "Invalid chartId" });
+      const doc = await getDeepReading(chartId);
+      if (!doc) return res.status(404).json({ error: "No reading generated yet" });
+      res.json(doc);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? "Failed to load deep reading" });
+    }
+  });
+
+  app.get("/api/admin/budget", requireAdmin, async (_req, res) => {
+    try {
+      const { getCurrentBudget } = await import("./deep-reading");
+      res.json(await getCurrentBudget());
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? "Failed to load budget" });
+    }
+  });
+
+  // ==========================================================================
   // Geocoding proxy (Open-Meteo — free, no key).
   // ==========================================================================
   app.get("/api/geocode", async (req, res) => {

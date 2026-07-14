@@ -24,9 +24,13 @@ import {
 } from "lucide-react";
 import { toneStyle } from "./KNRaoTab";
 import { RULE_CATEGORIES, categoryLabel, ruleTitle, ruleBody, planetName } from "@/lib/rules";
+import { useAuth } from "@/lib/auth";
+import { DeepReadingPanel } from "./DeepReadingPanel";
 
 interface Props {
   chart: ChartResult | null;
+  chartId?: number | null;
+  chartName?: string;
 }
 
 // Band → colour + label for a planet's net Sootchuma Valu.
@@ -43,8 +47,9 @@ function bandStyle(band: ValuBand): { chip: string; labelKey: Bilingual } {
   }
 }
 
-export function GurujiTab({ chart }: Props) {
+export function GurujiTab({ chart, chartId, chartName }: Props) {
   const { t } = useLang();
+  const { isAdmin } = useAuth();
 
   if (!chart) {
     return (
@@ -58,6 +63,10 @@ export function GurujiTab({ chart }: Props) {
 
   return (
     <div className="space-y-6" data-testid="guruji-tab">
+      {isAdmin && chartId ? (
+        <DeepReadingPanel chartId={chartId} chartName={chartName} />
+      ) : null}
+
       <GurujiPredictionsSection prediction={chart.prediction} />
 
       <GurujiRulesSection chart={chart} />

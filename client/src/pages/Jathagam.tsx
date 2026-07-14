@@ -500,7 +500,7 @@ export default function Jathagam() {
           ) : activeTab === "knrao" ? (
             <KNRaoTab chart={chart} />
           ) : activeTab === "guruji" ? (
-            <GurujiTab chart={chart} />
+            <GurujiTab chart={chart} chartId={activeChartId} chartName={name.trim() || undefined} />
           ) : activeTab === "risefall" ? (
             <RiseFallTab chart={chart} />
           ) : activeTab === "dashatransit" ? (

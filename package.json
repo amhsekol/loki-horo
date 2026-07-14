@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "tsx script/build.ts",
+    "bundle-rules": "node scripts/bundle-rules.mjs",
+    "_comment_bundle": "Run 'npm run bundle-rules' locally (needs /home/user/workspace/rules_ingest) whenever rule JSONLs change; commit the resulting shared/astro/rules.bundled.json. Do NOT run on VPS.",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push"
